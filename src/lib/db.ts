@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { Company, Claim, AxisState, VerificationLink, PublicReview } from './types';
+import { Company, Claim, AxisState, VerificationLink, PublicReview, UserFinancialRecord, ScoreHistoryItem } from './types';
 
 // Mock initial data
 const initialCompanies: Company[] = [
@@ -32,6 +32,28 @@ const initialReviews: PublicReview[] = [
   }
 ];
 
+const initialFinancialData: Record<string, UserFinancialRecord> = {
+  c1: {
+    userId: 'c1',
+    income: { monthly: 75000, stabilityMonths: 36, sourcesCount: 2 },
+    expenses: { monthlyAvg: 42000, discretionaryRatio: 0.2 },
+    payments: { totalDue: 24, onTimeCount: 24, lateCount: 0, missedCount: 0 },
+    savings: { currentBalance: 350000, monthlyContribution: 15000, emergencyFundMonths: 8 },
+    debts: { totalDebt: 120000, creditLimit: 500000, utilizationRatio: 0.24, monthlyDebtService: 12000 },
+    transactions: { count6Months: 240, bouncedCount: 0, oldestAccountYears: 6 },
+    updatedAt: '2024-10-01T00:00:00.000Z',
+  }
+};
+
+const initialScoreHistory: Record<string, ScoreHistoryItem[]> = {
+  c1: [
+    { id: 'hist_1', userId: 'c1', score: 720, previousScore: null, change: 0, level: 'Good', calculatedAt: '2024-01-01T00:00:00.000Z', reason: 'Initial baseline' },
+    { id: 'hist_2', userId: 'c1', score: 728, previousScore: 720, change: 8, level: 'Good', calculatedAt: '2024-04-01T00:00:00.000Z', reason: 'Quarterly update' },
+    { id: 'hist_3', userId: 'c1', score: 735, previousScore: 728, change: 7, level: 'Good', calculatedAt: '2024-07-01T00:00:00.000Z', reason: 'Quarterly update' },
+    { id: 'hist_4', userId: 'c1', score: 762, previousScore: 735, change: 27, level: 'Excellent', calculatedAt: '2024-10-01T00:00:00.000Z', reason: 'Savings milestone reached' },
+  ]
+};
+
 const initialLinks: VerificationLink[] = [];
 const initialAuditLogs: any[] = [];
 
@@ -44,11 +66,13 @@ function initDb() {
         companies: initialCompanies,
         claims: initialClaims,
         reviews: initialReviews,
+        financialData: initialFinancialData,
+        scoreHistory: initialScoreHistory,
         links: initialLinks,
         auditLogs: initialAuditLogs,
       }, null, 2));
     } catch {
-      // In serverless read-only environment, fallback safely
+      // Fallback
     }
   }
 }
@@ -59,6 +83,8 @@ export function getDb() {
     companies: initialCompanies,
     claims: initialClaims,
     reviews: initialReviews,
+    financialData: initialFinancialData,
+    scoreHistory: initialScoreHistory,
     links: initialLinks,
     auditLogs: initialAuditLogs,
   };
@@ -66,10 +92,11 @@ export function getDb() {
     if (fs.existsSync(DB_PATH)) {
       const parsed = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
       db = { ...db, ...parsed };
-      if (!db.reviews) db.reviews = initialReviews;
+      if (!db.financialData) db.financialData = initialFinancialData;
+      if (!db.scoreHistory) db.scoreHistory = initialScoreHistory;
     }
   } catch {
-    // Fallback to in-memory db
+    // Fallback to memory
   }
   return db;
 }
@@ -81,4 +108,60 @@ export function saveDb(data: any) {
     // Read-only environment ignore
   }
 }
+
+export function getUserFinancialData(userId: string): UserFinancialRecord | null {
+  const db = getDb();
+  return db.financialData?.[userId] || null;
+}
+
+export function saveUserFinancialData(userId: string, record: UserFinancialRecord): void {
+  const db = getDb();
+  if (!db.financialData) db.financialData = {};
+  db.financialData[userId] = record;
+  saveDb(db);
+}
+
+export function getUserScoreHistory(userId: string): ScoreHistoryItem[] {
+  const db = getDb();
+  return db.scoreHistory?.[userId] || [];
+}
+
+export function recordScoreHistory(
+  userId: string,
+  newScore: number,
+  level: string,
+  reason: string = 'Financial data updated'
+): ScoreHistoryItem[] {
+  const db = getDb();
+  if (!db.scoreHistory) db.scoreHistory = {};
+  const userHistory: ScoreHistoryItem[] = db.scoreHistory[userId] || [];
+
+  const lastItem = userHistory.length > 0 ? userHistory[userHistory.length - 1] : null;
+
+  // Requirement 6: Prevent recording duplicate history points when score has not changed!
+  if (lastItem && lastItem.score === newScore) {
+    return userHistory;
+  }
+
+  const previousScore = lastItem ? lastItem.score : null;
+  const change = previousScore !== null ? newScore - previousScore : 0;
+
+  const newItem: ScoreHistoryItem = {
+    id: `hist_${Date.now()}`,
+    userId,
+    score: newScore,
+    previousScore,
+    change,
+    level,
+    calculatedAt: new Date().toISOString(),
+    reason,
+  };
+
+  userHistory.push(newItem);
+  db.scoreHistory[userId] = userHistory;
+  saveDb(db);
+
+  return userHistory;
+}
+
 

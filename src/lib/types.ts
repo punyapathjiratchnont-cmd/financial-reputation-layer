@@ -52,3 +52,51 @@ export interface PublicReview {
   responses?: ReviewResponse[];
 }
 
+export interface UserFinancialRecord {
+  userId: string;
+  income: {
+    monthly: number;
+    stabilityMonths: number;
+    sourcesCount: number;
+  };
+  expenses: {
+    monthlyAvg: number;
+    discretionaryRatio: number;
+  };
+  payments: {
+    totalDue: number;
+    onTimeCount: number;
+    lateCount: number;
+    missedCount: number;
+  };
+  savings: {
+    currentBalance: number;
+    monthlyContribution: number;
+    emergencyFundMonths: number;
+  };
+  debts: {
+    totalDebt: number;
+    creditLimit: number;
+    utilizationRatio: number;
+    monthlyDebtService: number;
+  };
+  transactions: {
+    count6Months: number;
+    bouncedCount: number;
+    oldestAccountYears: number;
+  };
+  updatedAt: string;
+}
+
+export interface ScoreHistoryItem {
+  id: string;
+  userId: string;
+  score: number;
+  previousScore: number | null;
+  change: number;
+  level: string;
+  calculatedAt: string;
+  reason: string;
+}
+
+
