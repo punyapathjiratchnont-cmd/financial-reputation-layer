@@ -130,8 +130,14 @@ export function CompanyProfileView({ company }: Props) {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-400 mt-1">
                       Reg ID: <span className="font-mono text-slate-300">{company.registration_no}</span> &bull; {company.industry} &bull; {company.country || 'Global'} &bull; Founded {company.founded_date}
+                      {company.sourceInfo && (
+                        <span className="ml-2.5 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                          <Globe className="w-3 h-3 text-indigo-400" />
+                          Source: {company.sourceInfo.provider}
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -204,10 +210,15 @@ export function CompanyProfileView({ company }: Props) {
                   <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-bold text-slate-200">Payment Reliability</span>
-                      {dims?.paymentReliability?.isSufficient ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          {dims.paymentReliability.label}
-                        </span>
+                      {dims?.paymentReliability?.isSufficient && dims.paymentReliability.score ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-bold text-emerald-400">
+                            {dims.paymentReliability.score} / 1000
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            {dims.paymentReliability.label}
+                          </span>
+                        </div>
                       ) : (
                         <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
                           Insufficient Data
@@ -215,14 +226,14 @@ export function CompanyProfileView({ company }: Props) {
                       )}
                     </div>
                     {dims?.paymentReliability?.isSufficient && dims.paymentReliability.score ? (
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mt-2">
                         <div
                           className="bg-emerald-500 h-full rounded-full transition-all"
                           style={{ width: `${(dims.paymentReliability.score / 1000) * 100}%` }}
                         />
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500">Not enough verified payment records.</p>
+                      <p className="text-xs text-slate-500 mt-1">Not enough verified payment records.</p>
                     )}
                   </div>
 
@@ -230,10 +241,15 @@ export function CompanyProfileView({ company }: Props) {
                   <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-bold text-slate-200">Business Reliability</span>
-                      {dims?.businessReliability?.isSufficient ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                          {dims.businessReliability.label}
-                        </span>
+                      {dims?.businessReliability?.isSufficient && dims.businessReliability.score ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-bold text-indigo-400">
+                            {dims.businessReliability.score} / 1000
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                            {dims.businessReliability.label}
+                          </span>
+                        </div>
                       ) : (
                         <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
                           Insufficient Data
@@ -241,14 +257,14 @@ export function CompanyProfileView({ company }: Props) {
                       )}
                     </div>
                     {dims?.businessReliability?.isSufficient && dims.businessReliability.score ? (
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mt-2">
                         <div
                           className="bg-indigo-500 h-full rounded-full transition-all"
                           style={{ width: `${(dims.businessReliability.score / 1000) * 100}%` }}
                         />
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500">Not enough verified business attestation data.</p>
+                      <p className="text-xs text-slate-500 mt-1">Not enough verified business attestation data.</p>
                     )}
                   </div>
 
@@ -256,10 +272,15 @@ export function CompanyProfileView({ company }: Props) {
                   <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-bold text-slate-200">Financial Stability</span>
-                      {dims?.financialStability?.isSufficient ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                          {dims.financialStability.label}
-                        </span>
+                      {dims?.financialStability?.isSufficient && dims.financialStability.score ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-bold text-cyan-400">
+                            {dims.financialStability.score} / 1000
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                            {dims.financialStability.label}
+                          </span>
+                        </div>
                       ) : (
                         <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
                           Insufficient Data
@@ -267,14 +288,14 @@ export function CompanyProfileView({ company }: Props) {
                       )}
                     </div>
                     {dims?.financialStability?.isSufficient && dims.financialStability.score ? (
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mt-2">
                         <div
                           className="bg-cyan-500 h-full rounded-full transition-all"
                           style={{ width: `${(dims.financialStability.score / 1000) * 100}%` }}
                         />
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500">Financial stability metrics unavailable.</p>
+                      <p className="text-xs text-slate-500 mt-1">Financial stability metrics unavailable.</p>
                     )}
                   </div>
 
@@ -282,10 +303,15 @@ export function CompanyProfileView({ company }: Props) {
                   <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-bold text-slate-200">Transaction History</span>
-                      {dims?.transactionHistory?.isSufficient ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                          {dims.transactionHistory.label}
-                        </span>
+                      {dims?.transactionHistory?.isSufficient && dims.transactionHistory.score ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-bold text-amber-400">
+                            {dims.transactionHistory.score} / 1000
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            {dims.transactionHistory.label}
+                          </span>
+                        </div>
                       ) : (
                         <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
                           Insufficient Data
@@ -293,14 +319,14 @@ export function CompanyProfileView({ company }: Props) {
                       )}
                     </div>
                     {dims?.transactionHistory?.isSufficient && dims.transactionHistory.score ? (
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mt-2">
                         <div
                           className="bg-amber-500 h-full rounded-full transition-all"
                           style={{ width: `${(dims.transactionHistory.score / 1000) * 100}%` }}
                         />
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500">Transaction history data not submitted.</p>
+                      <p className="text-xs text-slate-500 mt-1">Transaction history data not submitted.</p>
                     )}
                   </div>
                 </div>
@@ -545,12 +571,12 @@ export function CompanyProfileView({ company }: Props) {
                   </div>
                 </div>
               ) : (
-                <div className="p-8 text-center rounded-2xl bg-white/5 border border-white/10">
-                  <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-md border border-amber-500/20 inline-block mb-2">
+                <div className="p-6 rounded-2xl bg-white/5 border border-white/10 flex flex-col items-start gap-2">
+                  <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-3.5 py-1 rounded-md border border-amber-500/20">
                     Insufficient Data
                   </span>
-                  <p className="text-xs text-slate-400">
-                    There is not enough historical trend data recorded for this profile.
+                  <p className="text-xs text-slate-400 mt-1">
+                    No historical reputation data is available.
                   </p>
                 </div>
               )}

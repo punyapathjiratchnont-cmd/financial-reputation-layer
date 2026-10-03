@@ -49,6 +49,42 @@ export interface AIAnalysisIssueItem {
   detail: string;
 }
 
+export interface CompanySourceInfo {
+  provider: string; // e.g. 'OpenCorporates'
+  url?: string;
+  retrievedAt?: string;
+}
+
+export interface CompanyIdentity {
+  id: string;
+  name: string;
+  legalName?: string;
+  businessType?: string;
+  industry?: string;
+  country?: string;
+  jurisdictionCode?: string;
+  registrationNumber?: string;
+  foundedYear?: number;
+  officialWebsite?: string;
+  logoUrl?: string;
+  source: CompanySourceInfo;
+  profileStatus: 'claimed' | 'unclaimed';
+}
+
+export interface CompanySearchResult {
+  id: string;
+  name: string;
+  businessType?: string;
+  industry?: string;
+  country?: string;
+  jurisdictionCode?: string;
+  registrationNumber?: string;
+  officialWebsite?: string;
+  logoUrl?: string;
+  profileStatus: 'claimed' | 'unclaimed';
+  source: CompanySourceInfo;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -58,6 +94,8 @@ export interface Company {
   country?: string;
   isClaimed?: boolean;
   logo?: string;
+  officialWebsite?: string;
+  sourceInfo?: CompanySourceInfo;
   overview?: string;
   reputationScore?: number | null; // 0 - 1000 scale
   reputationLevel?: string | null;
