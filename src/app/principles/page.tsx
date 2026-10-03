@@ -1,58 +1,58 @@
+'use client';
+
 import Link from 'next/link';
 import { ShieldCheck, Scale, Lock, HelpCircle, FileCheck, RefreshCw } from 'lucide-react';
 import { TierBadge } from '../company/[id]/ProfileMotion';
+import { useLanguage, LanguageToggle } from '@/lib/i18n';
 
 export default function PrinciplesPage() {
+  const { t } = useLanguage();
+
   const principles = [
     {
       code: 'P1',
-      title: 'No Single Score',
-      subtitle: 'ไม่มีคะแนนรวม แยกเป็นหลายแกน',
+      title: t('principles.p1_title', 'No Single Score'),
+      subtitle: t('principles.p1_sub', 'ไม่มีคะแนนรวม แยกเป็นหลายแกน'),
       icon: Scale,
       color: 'text-indigo-400',
       bg: 'bg-indigo-500/10 border-indigo-500/20',
-      description:
-        'FRL refuses to calculate, combine, or display a single overall score, total rating, or final grade. Business reputation is multi-dimensional and split into 6 independent axes: Reliability, Stability, Resilience, Leverage, Track Record, and Data Confidence.',
+      description: t('principles.p1_desc'),
     },
     {
       code: 'P2',
-      title: 'Selective Disclosure',
-      subtitle: 'เลือกเปิดเผยเฉพาะ Claim ไม่ส่งมอบข้อมูลดิบ',
+      title: t('principles.p2_title', 'Selective Disclosure'),
+      subtitle: t('principles.p2_sub', 'เลือกเปิดเผยเฉพาะ Claim ไม่ส่งมอบข้อมูลดิบ'),
       icon: Lock,
       color: 'text-emerald-400',
       bg: 'bg-emerald-500/10 border-emerald-500/20',
-      description:
-        'Verification Links expose only allowed Claim assertions (True / False) and Evidence Tiers. Raw transaction data, bank balances, and internal metrics are never exposed to counterparties or third parties.',
+      description: t('principles.p2_desc'),
     },
     {
       code: 'P3',
-      title: 'Insufficient Data ≠ Bad',
-      subtitle: 'แยกสถานะข้อมูลไม่พอออกจากผลประเมินแย่',
+      title: t('principles.p3_title', 'Insufficient Data ≠ Bad'),
+      subtitle: t('principles.p3_sub', 'แยกสถานะข้อมูลไม่พอออกจากผลประเมินแย่'),
       icon: HelpCircle,
       color: 'text-amber-400',
       bg: 'bg-amber-500/10 border-amber-500/20',
-      description:
-        'Absence of evidence is never treated as negative performance. Insufficient data is presented as a neutral static state—never as 0%, red risk bars, or "bad credit". Missing data implies nothing about quality.',
+      description: t('principles.p3_desc'),
     },
     {
       code: 'P4',
-      title: 'System as Evidence-Provider',
-      subtitle: 'ระบบเป็นผู้ส่งมอบหลักฐาน ไม่ใช่ผู้พิพากษา',
+      title: t('principles.p4_title', 'System as Evidence-Provider'),
+      subtitle: t('principles.p4_sub', 'ระบบเป็นผู้ส่งมอบหลักฐาน ไม่ใช่ผู้พิพากษา'),
       icon: FileCheck,
       color: 'text-purple-400',
       bg: 'bg-purple-500/10 border-purple-500/20',
-      description:
-        'FRL does not render credit verdicts, assign risk ratings, or make loan decisions. The system acts strictly as an objective evidence infrastructure; counterparties evaluate the evidence themselves.',
+      description: t('principles.p4_desc'),
     },
     {
       code: 'P5',
-      title: 'Decay & Right to Restart',
-      subtitle: 'ข้อมูลมีอายุ Expire/Decay และสิทธิ์ในการเริ่มต้นใหม่',
+      title: t('principles.p5_title', 'Decay & Right to Restart'),
+      subtitle: t('principles.p5_sub', 'ข้อมูลมีอายุ Expire/Decay และสิทธิ์ในการเริ่มต้นใหม่'),
       icon: RefreshCw,
       color: 'text-sky-400',
       bg: 'bg-sky-500/10 border-sky-500/20',
-      description:
-        'All claims and public feedback carry strict expiration dates. Expired records automatically decay and are removed from active verification views, allowing businesses the right to rebuild financial reputation over time.',
+      description: t('principles.p5_desc'),
     },
   ];
 
@@ -65,9 +65,12 @@ export default function PrinciplesPage() {
             <ShieldCheck className="w-6 h-6 text-indigo-400" />
             <span className="font-semibold text-lg tracking-tight">FRL</span>
           </Link>
-          <Link href="/search" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
-            Back to Search
-          </Link>
+          <div className="flex items-center gap-4">
+            <LanguageToggle />
+            <Link href="/search" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              {t('nav.backToSearch', 'Back to Search')}
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -75,13 +78,13 @@ export default function PrinciplesPage() {
         {/* Page Header */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-medium mb-4">
-            Financial Reputation Layer Core Architecture
+            {t('principles.badge')}
           </div>
           <h1 className="text-4xl font-bold tracking-tight mb-4 bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-            Principles & Evidence Tiers
+            {t('principles.title')}
           </h1>
           <p className="text-slate-400 text-base leading-relaxed">
-            FRL is built on strict systemic guarantees designed to preserve financial privacy, prevent subjective credit bias, and deliver verifiable evidence for counterparties.
+            {t('principles.subtitle')}
           </p>
         </div>
 
@@ -127,8 +130,8 @@ export default function PrinciplesPage() {
         <section>
           <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight">Evidence Tiers Matrix</h2>
-              <p className="text-xs text-slate-400 mt-1">Hierarchical evidence categorization & weight distribution</p>
+              <h2 className="text-2xl font-semibold tracking-tight">{t('matrix.title')}</h2>
+              <p className="text-xs text-slate-400 mt-1">{t('matrix.subtitle')}</p>
             </div>
             <span className="text-xs text-slate-400 font-mono">EVIDENCE HIERARCHY</span>
           </div>
@@ -137,10 +140,10 @@ export default function PrinciplesPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/10 bg-white/5 text-xs text-slate-400 font-mono uppercase tracking-wider">
-                  <th className="py-4 px-6">Tier</th>
-                  <th className="py-4 px-6">Source (ที่มา)</th>
-                  <th className="py-4 px-6">Weight (น้ำหนัก)</th>
-                  <th className="py-4 px-6">Verification Method</th>
+                  <th className="py-4 px-6">{t('matrix.col_tier')}</th>
+                  <th className="py-4 px-6">{t('matrix.col_source')}</th>
+                  <th className="py-4 px-6">{t('matrix.col_weight')}</th>
+                  <th className="py-4 px-6">{t('matrix.col_method')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 text-sm text-slate-300">
@@ -152,11 +155,11 @@ export default function PrinciplesPage() {
                   </td>
                   <td className="py-5 px-6">
                     <span className="text-slate-200 font-medium block">Official Documents</span>
-                    <span className="text-xs text-slate-400">ข้อมูลงบการเงินทางการ, e-Tax invoices, รายการภาษี หรือคดีความจากภาครัฐ</span>
+                    <span className="text-xs text-slate-400">{t('matrix.official_source')}</span>
                   </td>
                   <td className="py-5 px-6">
                     <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                      Highest Weight (สูงสุด)
+                      {t('matrix.official_weight')}
                     </span>
                   </td>
                   <td className="py-5 px-6 text-xs text-slate-400">
@@ -172,11 +175,11 @@ export default function PrinciplesPage() {
                   </td>
                   <td className="py-5 px-6">
                     <span className="text-slate-200 font-medium block">Counterparty Attestation</span>
-                    <span className="text-xs text-slate-400">ยืนยันร่วมสองฝ่ายจากคู่ค้า, ผู้ผลิต, หรือผู้ให้เช่าจริง</span>
+                    <span className="text-xs text-slate-400">{t('matrix.counterparty_source')}</span>
                   </td>
                   <td className="py-5 px-6">
                     <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                      Strong Weight (ปานกลาง)
+                      {t('matrix.counterparty_weight')}
                     </span>
                   </td>
                   <td className="py-5 px-6 text-xs text-slate-400">
@@ -192,14 +195,11 @@ export default function PrinciplesPage() {
                   </td>
                   <td className="py-5 px-6">
                     <span className="text-slate-200 font-medium block">Public Review</span>
-                    <span className="text-xs text-slate-400">ผู้ใช้ทั่วไปและสาธารณชนแจ้งข้อมูลหรือความคิดเห็น</span>
+                    <span className="text-xs text-slate-400">{t('matrix.public_source')}</span>
                   </td>
                   <td className="py-5 px-6">
                     <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/20">
-                      Lowest Weight (ต่ำสุด)
-                    </span>
-                    <span className="block text-[11px] text-amber-400/80 mt-1">
-                      ⚠️ ห้ามนำไปคำนวณสินเชื่อ หรือผสมกับ Axis
+                      {t('matrix.public_weight')}
                     </span>
                   </td>
                   <td className="py-5 px-6 text-xs text-slate-400">
