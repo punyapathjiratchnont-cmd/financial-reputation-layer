@@ -8,9 +8,12 @@ export interface AIAnalysisResult {
   recommendations: string[];
   analyzedAt: string;
   provider: 'rule-engine' | 'gemini-api' | 'openai-api';
+  model?: string;
+  inputVersion?: string;
 }
 
 export interface AIAnalysisInput {
+  userId?: string;
   reputation: ReputationResult;
   history?: ScoreHistoryPoint[];
   financialData?: Partial<UserFinancialData>;
@@ -21,10 +24,18 @@ export interface AIAnalysisProvider {
   analyze(input: AIAnalysisInput): Promise<AIAnalysisResult>;
 }
 
+// In-Memory AI Analysis Cache (Section 10)
+const AI_CACHE: Map<string, { result: AIAnalysisResult; createdAt: number }> = new Map();
+
+function generateCacheKey(input: AIAnalysisInput): string {
+  const userId = input.userId || 'default';
+  const score = input.reputation.score;
+  const updatedAt = input.financialData?.income?.monthly || 0;
+  return `${userId}_${score}_${updatedAt}`;
+}
+
 /**
- * Deterministic, Hallucination-Free Rule-Based AI Analysis Provider.
- * Used as primary robust engine and fallback when no external AI API keys are set.
- * Strictly derives insights from input reputation factors and history without inventing numbers.
+ * Deterministic Rule-Based AI Analysis Provider (Fallback & Baseline).
  */
 export class RuleBasedAIProvider implements AIAnalysisProvider {
   name = 'rule-engine';
@@ -33,7 +44,6 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
     const { reputation, history = [] } = input;
     const { score, level, factors } = reputation;
 
-    // Handle Empty / Insufficient Data scenario
     const factorList = Object.values(factors);
     const hasData = factorList.some((f) => f.score > 300);
 
@@ -48,26 +58,25 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
         ],
         analyzedAt: new Date().toISOString(),
         provider: 'rule-engine',
+        model: 'rule-engine-v1',
+        inputVersion: `${score}_v3`,
       };
     }
 
-    // Sort factors by score
     const sortedFactors = [...factorList].sort((a, b) => b.score - a.score);
     const topFactors = sortedFactors.slice(0, 2);
     const bottomFactors = sortedFactors.filter((f) => f.score < 680 || f.impact < 0);
 
-    // 1. Generate Summary
     const topNames = topFactors.map((f) => f.name).join(' and ');
     const bottomNames = bottomFactors.length > 0 ? bottomFactors.map((f) => f.name).join(', ') : 'none';
 
-    let summary = `The current reputation score is evaluated at ${score} (${level}). Primary score drivers are supported by strong performance in ${topNames}.`;
+    let summary = `Your current reputation score is evaluated at ${score} (${level}). Primary score drivers are supported by strong performance in ${topNames}.`;
     if (bottomFactors.length > 0) {
       summary += ` Areas requiring ongoing monitoring include ${bottomNames}.`;
     } else {
       summary += ` Financial indicators remain consistently strong across all evaluated factors.`;
     }
 
-    // 2. Identify Strengths (2–4 items from factor data)
     const strengths: string[] = [];
     if (factors.paymentReliability.score >= 700) {
       strengths.push('Consistent and punctual payment history with zero late flags.');
@@ -84,12 +93,10 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
     if (factors.transactionHistory.score >= 700) {
       strengths.push('Active transaction history with zero bounced transactions on record.');
     }
-    // Ensure 2–4 strengths
     if (strengths.length === 0) {
-      strengths.push(`Baseline performance maintained across ${topFactors[0]?.name || 'key financial metrics'}.`);
+      strengths.push(`Baseline performance maintained across ${topFactors[0]?.name || 'key metrics'}.`);
     }
 
-    // 3. Identify Concerns / Areas to Monitor (Neutral, non-judgmental language)
     const concerns: string[] = [];
     if (factors.spendingStability.score < 680 || factors.spendingStability.impact < 0) {
       concerns.push('Monthly expenditure ratio relative to total income is elevated.');
@@ -103,14 +110,10 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
     if (factors.savingBehavior.score < 680 || factors.savingBehavior.impact < 0) {
       concerns.push('Emergency liquidity reserve is below recommended multi-month coverage.');
     }
-    if (factors.incomeConsistency.score < 680 || factors.incomeConsistency.impact < 0) {
-      concerns.push('Income distribution reflects monthly variance across observation periods.');
-    }
     if (concerns.length === 0) {
       concerns.push('No critical financial risk flags detected based on current data points.');
     }
 
-    // 4. Trend Analysis
     const trends: string[] = [];
     if (history.length >= 2) {
       const first = history[0].score;
@@ -128,7 +131,6 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
       trends.push('Initial baseline evaluation established; ongoing quarterly data will form historical trend lines.');
     }
 
-    // 5. Non-judgmental Actionable Recommendations
     const recommendations: string[] = [];
     if (factors.spendingStability.score < 700) {
       recommendations.push('Consider monitoring discretionary monthly expenditure relative to net cash flow.');
@@ -154,17 +156,151 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
       recommendations: recommendations.slice(0, 4),
       analyzedAt: new Date().toISOString(),
       provider: 'rule-engine',
+      model: 'rule-engine-v1',
+      inputVersion: `${score}_v3`,
+    };
+  }
+}
+
+/**
+ * Real LLM Provider (Google Gemini API) (Section 3 & 4)
+ * Runs strictly server-side using GEMINI_API_KEY or LLM_API_KEY environment variable.
+ */
+export class RealGeminiLLMProvider implements AIAnalysisProvider {
+  name = 'gemini-api';
+
+  async analyze(input: AIAnalysisInput): Promise<AIAnalysisResult> {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.LLM_API_KEY;
+
+    if (!apiKey) {
+      throw new Error('LLM_API_KEY environment variable is not configured.');
+    }
+
+    const systemPrompt = `You are a financial data analysis assistant for the Financial Reputation Layer (FRL).
+Your task is strictly to analyze, explain, and summarize the provided structured financial reputation data.
+
+CRITICAL ARCHITECTURE RULES:
+1. You must ONLY analyze the provided structured JSON data.
+2. You must NOT invent or hallucinate financial numbers, scores, transactions, or user facts.
+3. You must NOT modify, calculate, or override the reputation score or factor scores.
+4. You must NOT provide investment, credit card, loan approval, or lending decisions.
+5. Output MUST be valid JSON adhering strictly to the schema:
+{
+  "summary": "Explaining why the score is at X based on inputs",
+  "strengths": ["string", "string"],
+  "concerns": ["string"],
+  "trends": ["string"],
+  "recommendations": ["string"]
+}`;
+
+    const userPayload = {
+      score: input.reputation.score,
+      level: input.reputation.level,
+      factors: input.reputation.factors,
+      history: input.history || [],
+      financialOverview: input.financialData ? {
+        monthlyIncome: input.financialData.income?.monthly,
+        monthlyExpenses: input.financialData.expenses?.monthlyAvg,
+        currentSavings: input.financialData.savings?.currentBalance,
+        totalDebt: input.financialData.debts?.totalDebt,
+      } : undefined,
+    };
+
+    const requestBody = {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: `${systemPrompt}\n\nDATA TO ANALYZE:\n${JSON.stringify(userPayload, null, 2)}` },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2, // Low temperature for deterministic analysis
+        responseMimeType: 'application/json',
+      },
+    };
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API call failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!rawText) {
+      throw new Error('Gemini API returned empty response.');
+    }
+
+    const parsed = JSON.parse(rawText);
+
+    // ANTI-HALLUCINATION RESPONSE VALIDATION (Section 8)
+    if (!parsed.summary || !Array.isArray(parsed.strengths) || !Array.isArray(parsed.concerns)) {
+      throw new Error('Gemini response failed JSON schema validation.');
+    }
+
+    // Validate that score referenced matches input exactly
+    if (parsed.summary.includes('score') && !parsed.summary.includes(String(input.reputation.score))) {
+      // If hallucinated score detected, throw to fallback
+      throw new Error('Hallucinated score detected in LLM output.');
+    }
+
+    return {
+      summary: parsed.summary,
+      strengths: parsed.strengths.slice(0, 4),
+      concerns: parsed.concerns.slice(0, 4),
+      trends: Array.isArray(parsed.trends) ? parsed.trends : ['Score history trends analyzed.'],
+      recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+      analyzedAt: new Date().toISOString(),
+      provider: 'gemini-api',
+      model: 'gemini-1.5-flash',
+      inputVersion: `${input.reputation.score}_v4`,
     };
   }
 }
 
 /**
  * Main Abstraction Function: analyzeFinancialReputation()
- * Decouples the UI and API from any single AI vendor.
- * Supports external LLM providers (e.g. Gemini / OpenAI) if keys exist,
- * otherwise falls back safely to RuleBasedAIProvider.
+ * 1. Checks AI Analysis Cache (Section 10)
+ * 2. Attempts Real LLM Provider (Gemini API) if API key exists
+ * 3. Fallback to RuleBasedAIProvider (Section 9) on any timeout/error/hallucination failure
  */
 export async function analyzeFinancialReputation(input: AIAnalysisInput): Promise<AIAnalysisResult> {
-  const provider = new RuleBasedAIProvider();
-  return await provider.analyze(input);
+  const cacheKey = generateCacheKey(input);
+  const cached = AI_CACHE.get(cacheKey);
+
+  // Return cached result if fresh (< 10 minutes)
+  if (cached && Date.now() - cached.createdAt < 600000) {
+    return cached.result;
+  }
+
+  let result: AIAnalysisResult;
+
+  const apiKey = process.env.GEMINI_API_KEY || process.env.LLM_API_KEY;
+
+  if (apiKey) {
+    try {
+      const llmProvider = new RealGeminiLLMProvider();
+      result = await llmProvider.analyze(input);
+    } catch (error) {
+      console.warn('Real LLM Provider failed or hallucination caught. Falling back to RuleBasedAIProvider:', error);
+      const fallbackProvider = new RuleBasedAIProvider();
+      result = await fallbackProvider.analyze(input);
+    }
+  } else {
+    // Standard Rule-Based Fallback Engine
+    const fallbackProvider = new RuleBasedAIProvider();
+    result = await fallbackProvider.analyze(input);
+  }
+
+  AI_CACHE.set(cacheKey, { result, createdAt: Date.now() });
+  return result;
 }

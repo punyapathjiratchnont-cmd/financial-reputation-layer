@@ -17,11 +17,12 @@ import {
   Edit3,
   UserCheck,
   ShieldCheck,
+  FileText,
 } from 'lucide-react';
 import { calculateReputation, ReputationResult, ReputationLevel, UserFinancialData } from '@/lib/reputationEngine';
 import { MOCK_FINANCIAL_PROFILES } from '@/lib/mockFinancialData';
 import { AIAnalysisResult } from '@/lib/aiAnalysisService';
-import { ScoreHistoryItem, UserFinancialRecord } from '@/lib/types';
+import { ScoreHistoryItem } from '@/lib/types';
 import { ScoreHistoryChart } from './ScoreHistoryChart';
 import { FinancialInputModal } from './FinancialInputModal';
 import { useLanguage } from '@/lib/i18n';
@@ -109,6 +110,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          userId,
           profileKey: isDemo ? selectedProfileKey : undefined,
           financialData: activeFinancialData,
           history: activeHistory,
@@ -126,7 +128,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
     } finally {
       setAiLoading(false);
     }
-  }, [activeReputation, activeFinancialData, activeHistory, isDemo, selectedProfileKey]);
+  }, [activeReputation, activeFinancialData, activeHistory, isDemo, selectedProfileKey, userId]);
 
   useEffect(() => {
     fetchAIAnalysis();
@@ -145,16 +147,26 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
     }
   };
 
-  // Financial Metrics Calculation (Requirement 9)
+  // FINANCIAL METRICS CALCULATION (Section 2: Audited Formulas & Definitions)
   const monthlyInc = activeFinancialData?.income?.monthly || 0;
   const monthlyExp = activeFinancialData?.expenses?.monthlyAvg || 0;
   const monthlySav = activeFinancialData?.savings?.monthlyContribution || 0;
   const totalSav = activeFinancialData?.savings?.currentBalance || 0;
   const totalDebt = activeFinancialData?.debts?.totalDebt || 0;
+  const monthlyDebtService = activeFinancialData?.debts?.monthlyDebtService || 0;
 
+  // Exact audited derived formulas:
+  // 1. Savings Rate: (Monthly Contribution / Monthly Income) * 100
   const savingsRate = monthlyInc > 0 ? ((monthlySav / monthlyInc) * 100).toFixed(1) : '0.0';
+
+  // 2. Expense Ratio: (Monthly Expenses / Monthly Income) * 100
   const expenseRatio = monthlyInc > 0 ? ((monthlyExp / monthlyInc) * 100).toFixed(1) : '0.0';
-  const debtRatio = (totalDebt + totalSav) > 0 ? ((totalDebt / (totalDebt + totalSav)) * 100).toFixed(1) : '0.0';
+
+  // 3. Debt Service to Income Ratio (DTI): (Monthly Debt Service / Monthly Income) * 100
+  const dtiRatio = monthlyInc > 0 ? ((monthlyDebtService / monthlyInc) * 100).toFixed(1) : '0.0';
+
+  // 4. Debt-to-Savings Ratio: (Total Debt / Total Savings) * 100
+  const debtToSavingsRatio = totalSav > 0 ? ((totalDebt / totalSav) * 100).toFixed(1) : '0.0';
 
   const factorList = activeReputation ? Object.values(activeReputation.factors) : [];
 
@@ -269,7 +281,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
             </div>
           </div>
 
-          {/* FINANCIAL OVERVIEW SUMMARY CARDS & DERIVED METRICS (Requirement 9) */}
+          {/* FINANCIAL OVERVIEW SUMMARY CARDS & AUDITED METRICS (Section 2 & Requirement 9) */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-white/10 pb-2">
               <h3 className="text-sm font-semibold uppercase text-slate-300 tracking-wider flex items-center gap-1.5">
@@ -289,28 +301,31 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
                 <span className="block text-lg font-bold text-slate-100">฿{monthlyExp.toLocaleString()}</span>
               </div>
               <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[11px] text-slate-400">Total Savings</span>
+                <span className="text-[11px] text-slate-400">Total Liquid Savings</span>
                 <span className="block text-lg font-bold text-emerald-400">฿{totalSav.toLocaleString()}</span>
               </div>
               <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[11px] text-slate-400">Total Debt</span>
+                <span className="text-[11px] text-slate-400">Total Debt Liabilities</span>
                 <span className="block text-lg font-bold text-amber-400">฿{totalDebt.toLocaleString()}</span>
               </div>
             </div>
 
-            {/* Derived Ratios */}
+            {/* Audited Derived Ratios */}
             <div className="grid grid-cols-3 gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-center text-xs">
               <div>
                 <span className="text-slate-400 block mb-0.5">Savings Rate</span>
                 <strong className="text-emerald-400 text-sm font-mono">{savingsRate}%</strong>
+                <span className="block text-[10px] text-slate-500 mt-0.5">(Savings / Income)</span>
               </div>
               <div>
                 <span className="text-slate-400 block mb-0.5">Expense Ratio</span>
                 <strong className="text-indigo-400 text-sm font-mono">{expenseRatio}%</strong>
+                <span className="block text-[10px] text-slate-500 mt-0.5">(Expenses / Income)</span>
               </div>
               <div>
-                <span className="text-slate-400 block mb-0.5">Debt-to-Asset Ratio</span>
-                <strong className="text-amber-400 text-sm font-mono">{debtRatio}%</strong>
+                <span className="text-slate-400 block mb-0.5">Debt Service Ratio (DTI)</span>
+                <strong className="text-amber-400 text-sm font-mono">{dtiRatio}%</strong>
+                <span className="block text-[10px] text-slate-500 mt-0.5">(Debt Payment / Income)</span>
               </div>
             </div>
           </div>
@@ -361,7 +376,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
             </div>
           </div>
 
-          {/* AI FINANCIAL ANALYSIS LAYER (Requirement 10) */}
+          {/* AI FINANCIAL ANALYSIS LAYER (Phase 4 Integration) */}
           <div className="pt-6 border-t border-white/10 space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -379,8 +394,18 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
                   </p>
                 </div>
               </div>
-              <span className="text-[11px] font-mono px-2 py-1 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 self-start md:self-auto">
-                AI Service Layer (Rule-Engine Abstraction)
+              <span className="text-[11px] font-mono px-2 py-1 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 self-start md:self-auto flex items-center gap-1">
+                {analysis?.provider === 'gemini-api' ? 'Real Gemini LLM API' : 'Rule-Engine Fallback'}
+              </span>
+            </div>
+
+            {/* USER-FACING AI DISCLAIMER (Section 15) */}
+            <div className="p-3 rounded-xl bg-slate-900 border border-white/10 text-[11px] text-slate-400 flex items-start gap-2">
+              <FileText className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <span>
+                {language === 'th'
+                  ? 'บทวิเคราะห์โดย AI มีวัตถุประสงค์เพื่อการอธิบายข้อมูลเท่านั้น และประมวลผลจากข้อมูลทางการเงินที่ปรากฏในโปรไฟล์ของคุณ AI ไม่มีอำนาจในการกำหนดคะแนน reputation score หรือถือเป็นคำแนะนำทางการลงทุน การให้สินเชื่อ หรืออนุมัติวงเงินใดๆ'
+                  : 'AI-generated insights are informational and based strictly on the financial data available in your profile. They do not determine your reputation score or constitute financial, lending, or investment decisions.'}
               </span>
             </div>
 
@@ -413,15 +438,15 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
             {/* Successful Analysis Output */}
             {analysis && !aiLoading && !aiError && (
               <div className="space-y-6">
-                {/* Executive Summary Box */}
+                {/* Executive Summary & AI Explanation */}
                 <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-2">
                   <div className="flex items-center justify-between text-xs font-semibold text-indigo-300">
                     <span className="flex items-center gap-1.5">
                       <Info className="w-4 h-4 text-indigo-400" />
-                      {language === 'th' ? 'บทสรุปผู้บริหารโดย AI' : 'Executive Summary'}
+                      {language === 'th' ? 'คำอธิบายสรุปที่มาของคะแนนโดย AI' : 'AI Explanation & Executive Summary'}
                     </span>
                     <span className="font-mono text-[10px] text-indigo-400/80">
-                      Analyzed {new Date(analysis.analyzedAt).toLocaleTimeString()}
+                      Provider: {analysis.provider} ({analysis.model || 'v1'})
                     </span>
                   </div>
                   <p className="text-sm text-slate-200 leading-relaxed">{analysis.summary}</p>

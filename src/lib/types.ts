@@ -99,4 +99,12 @@ export interface ScoreHistoryItem {
   reason: string;
 }
 
+export interface AICacheRecord {
+  cacheKey: string;
+  analysis: any;
+  createdAt: string;
+  inputVersion: string;
+}
+
+
 
