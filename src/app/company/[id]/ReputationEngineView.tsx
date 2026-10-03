@@ -18,14 +18,21 @@ import {
   UserCheck,
   ShieldCheck,
   FileText,
+  Share2,
+  Copy,
+  ExternalLink,
+  Lock,
+  XCircle,
+  Check,
 } from 'lucide-react';
 import { calculateReputation, ReputationResult, ReputationLevel, UserFinancialData } from '@/lib/reputationEngine';
 import { MOCK_FINANCIAL_PROFILES } from '@/lib/mockFinancialData';
 import { AIAnalysisResult } from '@/lib/aiAnalysisService';
-import { ScoreHistoryItem } from '@/lib/types';
+import { ScoreHistoryItem, ReputationProof } from '@/lib/types';
 import { ScoreHistoryChart } from './ScoreHistoryChart';
 import { FinancialInputModal } from './FinancialInputModal';
 import { useLanguage } from '@/lib/i18n';
+
 
 interface ReputationEngineViewProps {
   userId?: string;
@@ -53,6 +60,78 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
   const [aiLoading, setAiLoading] = useState<boolean>(true);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  // Phase 5: Reputation Proof State
+  const [proofs, setProofs] = useState<ReputationProof[]>([]);
+  const [proofsLoading, setProofsLoading] = useState<boolean>(false);
+  const [generatingProof, setGeneratingProof] = useState<boolean>(false);
+  const [copiedProofId, setCopiedProofId] = useState<string | null>(null);
+  const [proofError, setProofError] = useState<string | null>(null);
+
+  // Fetch Proofs
+  const fetchProofs = useCallback(async () => {
+    setProofsLoading(true);
+    try {
+      const res = await fetch(`/api/reputation/proof?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProofs(data.proofs || []);
+      }
+    } catch (err) {
+      console.error('Failed to load reputation proofs:', err);
+    } finally {
+      setProofsLoading(false);
+    }
+  }, [userId]);
+
+  // Generate Proof Handler
+  const handleGenerateProof = async () => {
+    setGeneratingProof(true);
+    setProofError(null);
+    try {
+      const res = await fetch('/api/reputation/proof', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (res.ok) {
+        await fetchProofs();
+      } else {
+        const data = await res.json();
+        setProofError(data.error || 'Failed to generate reputation proof.');
+      }
+    } catch (err) {
+      setProofError('Network error generating proof.');
+    } finally {
+      setGeneratingProof(false);
+    }
+  };
+
+  // Revoke Proof Handler
+  const handleRevokeProof = async (proofId: string) => {
+    try {
+      const res = await fetch('/api/reputation/proof/revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proofId, userId }),
+      });
+
+      if (res.ok) {
+        await fetchProofs();
+      }
+    } catch (err) {
+      console.error('Failed to revoke proof:', err);
+    }
+  };
+
+  // Copy Verification Link
+  const handleCopyLink = (proofId: string) => {
+    const url = `${window.location.origin}/verify/${proofId}`;
+    navigator.clipboard.writeText(url);
+    setCopiedProofId(proofId);
+    setTimeout(() => setCopiedProofId(null), 2500);
+  };
+
   // Fetch Real Reputation Data from API
   const fetchRealData = useCallback(async () => {
     setLoading(true);
@@ -79,7 +158,9 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
 
   useEffect(() => {
     fetchRealData();
-  }, [fetchRealData]);
+    fetchProofs();
+  }, [fetchRealData, fetchProofs]);
+
 
   // Compute active data based on mode
   const isDemo = dataMode === 'demo';
@@ -531,6 +612,176 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
                 </div>
               </div>
             )}
+          </div>
+
+          {/* PHASE 5: REPUTATION VERIFICATION & PRIVACY-PRESERVING SHARING */}
+          <div className="pt-8 border-t border-white/10 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Share2 className="w-5 h-5 text-indigo-400" />
+                  <h3 className="text-xl font-bold text-slate-100">
+                    {language === 'th' ? 'การยืนยันและแชร์ Reputation แบบรักษาความเป็นส่วนตัว' : 'Reputation Verification & Privacy-Preserving Sharing'}
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-400">
+                  {language === 'th'
+                    ? 'สร้าง Reputation Proof snapshot เพื่อให้บุคคลอื่นตรวจสอบได้ โดยไม่เปิดเผยข้อมูลการเงินส่วนตัว'
+                    : 'Generate verifiable Reputation Proof snapshots for third parties without exposing raw financial details.'}
+                </p>
+              </div>
+
+              <button
+                onClick={handleGenerateProof}
+                disabled={generatingProof || (!isDemo && !realHasData)}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold transition-all shadow-md flex items-center gap-2 self-start md:self-auto"
+              >
+                {generatingProof ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4" />
+                )}
+                Generate Reputation Proof
+              </button>
+            </div>
+
+            {/* Privacy Notices (Requirements 1, 6, 19) */}
+            <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs space-y-1.5 text-slate-300">
+              <div className="font-semibold text-indigo-300 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-emerald-400" />
+                <span>Privacy-First Verification Guarantee</span>
+              </div>
+              <p className="text-slate-300">
+                "Your financial details are never exposed through this verification link."
+              </p>
+              <p className="text-slate-400 italic text-[11px]">
+                "This proof represents a snapshot of your reputation at the time it was created."
+              </p>
+            </div>
+
+            {proofError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+                {proofError}
+              </div>
+            )}
+
+            {/* Proof List (Requirements 8, 9, 18) */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Active & Historical Reputation Proofs
+              </h4>
+
+              {proofsLoading ? (
+                <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Loading verification proofs...
+                </div>
+              ) : proofs.length === 0 ? (
+                <div className="p-8 rounded-2xl border border-dashed border-slate-800 bg-black/20 text-center text-slate-400 text-xs">
+                  No reputation proofs created yet. Click "Generate Reputation Proof" above to create your first privacy-preserving verification link.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {proofs.map((proof) => {
+                    const isExpired = proof.status === 'expired' || new Date(proof.expiresAt) < new Date();
+                    const isRevoked = proof.status === 'revoked';
+                    const isActive = proof.status === 'active' && !isExpired;
+
+                    return (
+                      <div
+                        key={proof.id}
+                        className={`p-5 rounded-2xl border transition-all ${
+                          isActive
+                            ? 'bg-white/[0.03] border-white/10 hover:border-white/20'
+                            : 'bg-slate-900/40 border-slate-800/80 opacity-75'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-mono font-bold text-slate-200">
+                                Proof #{proof.id.substring(6, 14)}
+                              </span>
+
+                              {isActive && (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  ✓ Active Reputation Proof
+                                </span>
+                              )}
+
+                              {isRevoked && (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center gap-1">
+                                  <XCircle className="w-3 h-3" />
+                                  Revoked
+                                </span>
+                              )}
+
+                              {isExpired && !isRevoked && (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Expired
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap text-xs text-slate-400 pt-1">
+                              <span>Score: <strong className="text-slate-100">{proof.score}</strong> ({proof.level})</span>
+                              <span>•</span>
+                              <span>Verified: {new Date(proof.verifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                              <span>•</span>
+                              <span>Expires: {new Date(proof.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <a
+                              href={`/verify/${proof.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-medium transition-colors flex items-center gap-1"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              View Proof
+                            </a>
+
+                            {isActive && (
+                              <>
+                                <button
+                                  onClick={() => handleCopyLink(proof.id)}
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-200 text-xs font-medium transition-colors flex items-center gap-1"
+                                >
+                                  {copiedProofId === proof.id ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                      Copied!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3.5 h-3.5" />
+                                      Copy Link
+                                    </>
+                                  )}
+                                </button>
+
+                                <button
+                                  onClick={() => handleRevokeProof(proof.id)}
+                                  className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium transition-colors flex items-center gap-1"
+                                >
+                                  <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                                  Revoke
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

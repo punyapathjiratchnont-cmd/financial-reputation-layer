@@ -307,3 +307,22 @@ export function calculateReputation(data?: Partial<UserFinancialData>): Reputati
     calculatedAt: new Date().toISOString(),
   };
 }
+
+export function generateFactorSummary(factors: ReputationResult['factors']) {
+  const getLabel = (score: number, highLabel = 'Strong', midHighLabel = 'Good', midLabel = 'Moderate', lowLabel = 'Weak') => {
+    if (score >= 750) return highLabel;
+    if (score >= 650) return midHighLabel;
+    if (score >= 500) return midLabel;
+    return lowLabel;
+  };
+
+  return {
+    paymentReliability: getLabel(factors.paymentReliability.score, 'Strong', 'Good', 'Moderate', 'Needs Improvement'),
+    incomeConsistency: getLabel(factors.incomeConsistency.score, 'Stable', 'Stable', 'Moderate', 'Variable'),
+    spendingStability: getLabel(factors.spendingStability.score, 'Strong', 'Stable', 'Moderate', 'Variable'),
+    savingBehavior: getLabel(factors.savingBehavior.score, 'Strong', 'Good', 'Moderate', 'Low'),
+    debtBehavior: getLabel(factors.debtBehavior.score, 'Strong', 'Moderate', 'Elevated', 'High Risk'),
+    transactionHistory: getLabel(factors.transactionHistory.score, 'Strong', 'Good', 'Moderate', 'Limited'),
+  };
+}
+

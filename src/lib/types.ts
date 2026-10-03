@@ -99,12 +99,27 @@ export interface ScoreHistoryItem {
   reason: string;
 }
 
-export interface AICacheRecord {
-  cacheKey: string;
-  analysis: any;
-  createdAt: string;
-  inputVersion: string;
+export interface FactorSummary {
+  paymentReliability: string;
+  incomeConsistency: string;
+  spendingStability: string;
+  savingBehavior: string;
+  debtBehavior: string;
+  transactionHistory: string;
 }
+
+export interface ReputationProof {
+  id: string;
+  ownerUserId: string;
+  score: number;
+  level: string;
+  factorSummary: FactorSummary;
+  verifiedAt: string;
+  expiresAt: string;
+  status: 'active' | 'revoked' | 'expired';
+  createdAt: string;
+}
+
 
 
 

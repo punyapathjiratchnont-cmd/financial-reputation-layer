@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { Company, Claim, AxisState, VerificationLink, PublicReview, UserFinancialRecord, ScoreHistoryItem } from './types';
+import { Company, Claim, AxisState, VerificationLink, PublicReview, UserFinancialRecord, ScoreHistoryItem, ReputationProof } from './types';
+
 
 // Mock initial data
 const initialCompanies: Company[] = [
@@ -163,5 +164,62 @@ export function recordScoreHistory(
 
   return userHistory;
 }
+
+// Phase 5: Reputation Proof DB Operations
+export function createReputationProof(proof: ReputationProof): ReputationProof {
+  const db = getDb();
+  if (!db.reputationProofs) db.reputationProofs = [];
+  db.reputationProofs.push(proof);
+  saveDb(db);
+  return proof;
+}
+
+export function getReputationProof(id: string): ReputationProof | null {
+  const db = getDb();
+  const proofs: ReputationProof[] = db.reputationProofs || [];
+  const proof = proofs.find((p) => p.id === id);
+  if (!proof) return null;
+
+  // Auto-expire check
+  if (proof.status === 'active' && new Date(proof.expiresAt) < new Date()) {
+    proof.status = 'expired';
+    saveDb(db);
+  }
+
+  return proof;
+}
+
+export function getUserReputationProofs(ownerUserId: string): ReputationProof[] {
+  const db = getDb();
+  const proofs: ReputationProof[] = db.reputationProofs || [];
+  let updated = false;
+
+  const userProofs = proofs.filter((p) => p.ownerUserId === ownerUserId);
+  userProofs.forEach((p) => {
+    if (p.status === 'active' && new Date(p.expiresAt) < new Date()) {
+      p.status = 'expired';
+      updated = true;
+    }
+  });
+
+  if (updated) {
+    saveDb(db);
+  }
+
+  return userProofs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export function revokeReputationProof(id: string, ownerUserId: string): boolean {
+  const db = getDb();
+  const proofs: ReputationProof[] = db.reputationProofs || [];
+  const proof = proofs.find((p) => p.id === id && p.ownerUserId === ownerUserId);
+
+  if (!proof) return false;
+
+  proof.status = 'revoked';
+  saveDb(db);
+  return true;
+}
+
 
 
