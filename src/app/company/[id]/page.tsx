@@ -7,6 +7,7 @@ import { ShieldCheck, Building2, HelpCircle, MessageSquare } from 'lucide-react'
 import { MOCK_COMPANIES, MOCK_AXIS_STATE } from '@/lib/mockData';
 import { Axis } from '@/lib/types';
 import { VerifiedAxisCard, InsufficientAxisCard, VerifiedActiveBadge, TierBadge } from './ProfileMotion';
+import { ReputationEngineView } from './ReputationEngineView';
 import { useLanguage, LanguageToggle } from '@/lib/i18n';
 
 export default function CompanyProfile({ params }: { params: Promise<{ id: string }> }) {
@@ -58,8 +59,6 @@ export default function CompanyProfile({ params }: { params: Promise<{ id: strin
             </div>
           </div>
         </div>
-
-        {/* Note: NO OVERALL SCORE HERE. This is strictly prohibited by Rule P1. */}
 
         <div className="space-y-8">
           <div className="flex items-center justify-between">
@@ -116,6 +115,9 @@ export default function CompanyProfile({ params }: { params: Promise<{ id: strin
             })}
           </div>
 
+          {/* Core Financial Reputation Engine Component */}
+          <ReputationEngineView />
+
           {/* Separate Section for Public Reviews (Isolated from Axes per P1 & P4) */}
           <div className="mt-12 p-6 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
@@ -139,3 +141,4 @@ export default function CompanyProfile({ params }: { params: Promise<{ id: strin
     </div>
   );
 }
+
