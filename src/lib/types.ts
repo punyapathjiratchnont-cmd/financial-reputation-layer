@@ -34,3 +34,21 @@ export interface VerificationLink {
   created_by: string;
   expires_at: string;
 }
+
+export interface ReviewResponse {
+  id: string;
+  author_name: string;
+  response_text: string;
+  created_at: string;
+}
+
+export interface PublicReview {
+  id: string;
+  company_id: string;
+  author_name: string;
+  review_text: string;
+  created_at: string;
+  expires_at: string;
+  responses?: ReviewResponse[];
+}
+

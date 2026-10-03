@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { Company, Claim, AxisState, VerificationLink } from './types';
+import { Company, Claim, AxisState, VerificationLink, PublicReview } from './types';
 
 // Mock initial data
 const initialCompanies: Company[] = [
@@ -13,6 +13,25 @@ const initialClaims: Claim[] = [
   { id: 'claim_2', company_id: 'c1', statement_text: 'Paid all supplier invoices within 15 days', axis_ref: 'reliability', evidence_tier: 'counterparty_attested', status: 'active', created_at: '2023-01-01', expires_at: '2030-12-31' }
 ];
 
+const initialReviews: PublicReview[] = [
+  {
+    id: 'rev_1',
+    company_id: 'c1',
+    author_name: 'Verified Vendor A',
+    review_text: 'Smooth communication during project delivery. Payment was processed within agreed timeline.',
+    created_at: '2024-01-15',
+    expires_at: '2025-01-15',
+    responses: [
+      {
+        id: 'resp_1',
+        author_name: 'TechFlow Solutions (Company Owner)',
+        response_text: 'Thank you for your feedback! We appreciate working with your team.',
+        created_at: '2024-01-16'
+      }
+    ]
+  }
+];
+
 const initialLinks: VerificationLink[] = [];
 const initialAuditLogs: any[] = [];
 
@@ -20,20 +39,46 @@ const DB_PATH = path.join(process.cwd(), 'local-db.json');
 
 function initDb() {
   if (!fs.existsSync(DB_PATH)) {
-    fs.writeFileSync(DB_PATH, JSON.stringify({
-      companies: initialCompanies,
-      claims: initialClaims,
-      links: initialLinks,
-      auditLogs: initialAuditLogs,
-    }, null, 2));
+    try {
+      fs.writeFileSync(DB_PATH, JSON.stringify({
+        companies: initialCompanies,
+        claims: initialClaims,
+        reviews: initialReviews,
+        links: initialLinks,
+        auditLogs: initialAuditLogs,
+      }, null, 2));
+    } catch {
+      // In serverless read-only environment, fallback safely
+    }
   }
 }
 
 export function getDb() {
   initDb();
-  return JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
+  let db: any = {
+    companies: initialCompanies,
+    claims: initialClaims,
+    reviews: initialReviews,
+    links: initialLinks,
+    auditLogs: initialAuditLogs,
+  };
+  try {
+    if (fs.existsSync(DB_PATH)) {
+      const parsed = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
+      db = { ...db, ...parsed };
+      if (!db.reviews) db.reviews = initialReviews;
+    }
+  } catch {
+    // Fallback to in-memory db
+  }
+  return db;
 }
 
 export function saveDb(data: any) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+  } catch {
+    // Read-only environment ignore
+  }
 }
+

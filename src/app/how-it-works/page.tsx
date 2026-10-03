@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default function TiersRedirect() {
+export default function HowItWorksRedirect() {
   redirect('/principles');
 }

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ShieldCheck, Building2, HelpCircle } from 'lucide-react';
+import { ShieldCheck, Building2, HelpCircle, MessageSquare } from 'lucide-react';
 import { MOCK_COMPANIES, MOCK_AXIS_STATE } from '@/lib/mockData';
 import { Axis } from '@/lib/types';
 import { VerifiedAxisCard, InsufficientAxisCard, VerifiedActiveBadge, TierBadge } from './ProfileMotion';
@@ -56,7 +56,7 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
         <div className="space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Reputation Axes</h2>
-            <Link href="/tiers" className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300">
+            <Link href="/principles" className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300">
               <HelpCircle className="w-4 h-4" />
               What are evidence tiers?
             </Link>
@@ -107,8 +107,28 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
               );
             })}
           </div>
+
+          {/* Separate Section for Public Reviews (Isolated from Axes per P1 & P4) */}
+          <div className="mt-12 p-6 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <MessageSquare className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-base font-semibold text-slate-200">Public Reviews Channel</h3>
+              </div>
+              <p className="text-xs text-slate-400">
+                Qualitative user feedback channel. Strictly isolated from financial reputation axes (P1 & P4).
+              </p>
+            </div>
+            <Link
+              href={`/company/${company.id}/reviews`}
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-sm font-medium transition-colors shrink-0 flex items-center gap-1.5"
+            >
+              View Public Reviews →
+            </Link>
+          </div>
         </div>
       </main>
     </div>
   );
 }
+
