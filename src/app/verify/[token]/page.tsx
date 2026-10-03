@@ -3,11 +3,12 @@ import { ShieldCheck, CheckCircle2, Lock, AlertTriangle, XCircle } from 'lucide-
 import { getDb, saveDb } from '@/lib/db';
 import { EvidenceTier, Claim, VerificationLink } from '@/lib/types';
 
-export default async function VerifyPage({ params }: { params: { token: string } }) {
+export default async function VerifyPage({ params }: { params: Promise<{ token: string }> }) {
   const db = getDb();
+  const { token } = await params;
   
   // Find link
-  const link = db.links.find((l: VerificationLink) => l.token === params.token);
+  const link = db.links.find((l: VerificationLink) => l.token === token);
   
   // Write Audit Log
   if (link) {

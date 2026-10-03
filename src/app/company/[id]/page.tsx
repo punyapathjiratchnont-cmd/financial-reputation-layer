@@ -4,8 +4,9 @@ import { ShieldCheck, Building2, HelpCircle, CheckCircle2 } from 'lucide-react';
 import { MOCK_COMPANIES, MOCK_AXIS_STATE } from '@/lib/mockData';
 import { Axis, EvidenceTier } from '@/lib/types';
 
-export default function CompanyProfile({ params }: { params: { id: string } }) {
-  const company = MOCK_COMPANIES.find(c => c.id === params.id);
+export default async function CompanyProfile({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const company = MOCK_COMPANIES.find(c => c.id === id);
   
   if (!company) {
     notFound();

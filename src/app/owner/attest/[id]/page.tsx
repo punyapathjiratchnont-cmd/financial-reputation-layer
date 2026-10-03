@@ -1,11 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { useState, use } from 'react';
 import Link from 'next/link';
 import { ShieldCheck, Mail, Send, Check } from 'lucide-react';
 import { MOCK_COMPANIES } from '@/lib/mockData';
 
-export default function AttestRequestPage({ params }: { params: { id: string } }) {
-  const company = MOCK_COMPANIES.find(c => c.id === params.id) || MOCK_COMPANIES[0];
+export default function AttestRequestPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const company = MOCK_COMPANIES.find(c => c.id === id) || MOCK_COMPANIES[0];
   const [sent, setSent] = useState(false);
 
   return (
