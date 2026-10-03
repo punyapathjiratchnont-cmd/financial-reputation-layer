@@ -24,3 +24,24 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ---- Company profile motion (meaningful, subtle) ---- */
+.frl-trace-track { height: 2px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.frl-trace-line { height: 100%; width: 100%; background: rgba(52,211,153,0.55); transform-origin: left; }
+.frl-live-dot { width: 6px; height: 6px; border-radius: 9999px; background: #34d399; margin-right: 6px; display: inline-block; }
+.frl-tip {
+  position: absolute; left: 0; top: calc(100% + 8px); width: 16rem; z-index: 20;
+  padding: 0.6rem 0.75rem; border-radius: 0.75rem; font-size: 0.75rem; line-height: 1.4; color: #cbd5e1;
+  background: rgba(15,23,42,0.97); border: 1px solid rgba(255,255,255,0.12);
+  opacity: 0; visibility: hidden; pointer-events: none; transform-origin: top left;
+}
+.frl-tier:hover .frl-tip, .frl-tier:focus-within .frl-tip { opacity: 1; visibility: visible; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .frl-trace-line { transform: scaleX(0); }
+  .frl-axis[data-drawn="true"] .frl-trace-line { transform: scaleX(1); transition: transform 750ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .frl-live-dot { animation: frl-breathe 3s ease-in-out infinite; }
+  .frl-tip { transform: scale(0.94) translateY(4px); transition: opacity 120ms ease-out, transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1), visibility 0s linear 280ms; }
+  .frl-tier:hover .frl-tip, .frl-tier:focus-within .frl-tip { transform: none; transition-delay: 0s; }
+}
+@keyframes frl-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }

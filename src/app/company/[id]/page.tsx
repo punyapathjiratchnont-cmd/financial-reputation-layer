@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ShieldCheck, Building2, HelpCircle, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Building2, HelpCircle } from 'lucide-react';
 import { MOCK_COMPANIES, MOCK_AXIS_STATE } from '@/lib/mockData';
-import { Axis, EvidenceTier } from '@/lib/types';
+import { Axis } from '@/lib/types';
+import { VerifiedAxisCard, InsufficientAxisCard, VerifiedActiveBadge, TierBadge } from './ProfileMotion';
 
 export default async function CompanyProfile({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -16,16 +17,6 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
 
   const ALL_AXES: Axis[] = ['reliability', 'stability', 'resilience', 'leverage', 'track_record', 'data_confidence'];
 
-  const getTierBadge = (tier: EvidenceTier) => {
-    switch (tier) {
-      case 'official':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">Official</span>;
-      case 'counterparty_attested':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Counterparty</span>;
-      case 'public_review':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">Public Review</span>;
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-20">
@@ -76,8 +67,9 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
               const stateInfo = axisStates.find(a => a.axis === axisName);
               const isInsufficient = !stateInfo || stateInfo.state === 'insufficient_data';
               
+              const Card = isInsufficient ? InsufficientAxisCard : VerifiedAxisCard;
               return (
-                <div key={axisName} className={`p-6 rounded-2xl border backdrop-blur-sm transition-all ${isInsufficient ? 'bg-slate-900/30 border-dashed border-slate-700' : 'bg-white/5 border-white/10'}`}>
+                <Card key={axisName}>
                   <div className="flex items-start justify-between mb-4">
                     <h3 className="text-lg font-medium capitalize">{axisName.replace('_', ' ')}</h3>
                     {isInsufficient ? (
@@ -85,10 +77,7 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
                         Insufficient Data
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Verified Active
-                      </span>
+                      <VerifiedActiveBadge />
                     )}
                   </div>
 
@@ -107,14 +96,14 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
                         <div key={claim.id} className="p-4 rounded-xl bg-black/20 border border-white/5">
                           <p className="text-slate-200 mb-3">{claim.statement_text}</p>
                           <div className="flex items-center gap-3 text-xs text-slate-400">
-                            {getTierBadge(claim.evidence_tier)}
+                            <TierBadge tier={claim.evidence_tier} />
                             <span>Expires: {claim.expires_at}</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
-                </div>
+                </Card>
               );
             })}
           </div>

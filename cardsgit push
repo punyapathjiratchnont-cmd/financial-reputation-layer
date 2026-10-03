@@ -1,0 +1,104 @@
+warning: in the working copy of 'src/app/company/[id]/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/globals.css', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/app/company/[id]/page.tsx b/src/app/company/[id]/page.tsx[m
+[1mindex d67e845..e3a5e5d 100644[m
+[1m--- a/src/app/company/[id]/page.tsx[m
+[1m+++ b/src/app/company/[id]/page.tsx[m
+[36m@@ -1,8 +1,9 @@[m
+ import Link from 'next/link';[m
+ import { notFound } from 'next/navigation';[m
+[31m-import { ShieldCheck, Building2, HelpCircle, CheckCircle2 } from 'lucide-react';[m
+[32m+[m[32mimport { ShieldCheck, Building2, HelpCircle } from 'lucide-react';[m
+ import { MOCK_COMPANIES, MOCK_AXIS_STATE } from '@/lib/mockData';[m
+[31m-import { Axis, EvidenceTier } from '@/lib/types';[m
+[32m+[m[32mimport { Axis } from '@/lib/types';[m
+[32m+[m[32mimport { VerifiedAxisCard, InsufficientAxisCard, VerifiedActiveBadge, TierBadge } from './ProfileMotion';[m
+ [m
+ export default async function CompanyProfile({ params }: { params: Promise<{ id: string }> }) {[m
+   const { id } = await params;[m
+[36m@@ -16,16 +17,6 @@[m [mexport default async function CompanyProfile({ params }: { params: Promise<{ id:[m
+ [m
+   const ALL_AXES: Axis[] = ['reliability', 'stability', 'resilience', 'leverage', 'track_record', 'data_confidence'];[m
+ [m
+[31m-  const getTierBadge = (tier: EvidenceTier) => {[m
+[31m-    switch (tier) {[m
+[31m-      case 'official':[m
+[31m-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">Official</span>;[m
+[31m-      case 'counterparty_attested':[m
+[31m-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Counterparty</span>;[m
+[31m-      case 'public_review':[m
+[31m-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">Public Review</span>;[m
+[31m-    }[m
+[31m-  };[m
+ [m
+   return ([m
+     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-20">[m
+[36m@@ -76,8 +67,9 @@[m [mexport default async function CompanyProfile({ params }: { params: Promise<{ id:[m
+               const stateInfo = axisStates.find(a => a.axis === axisName);[m
+               const isInsufficient = !stateInfo || stateInfo.state === 'insufficient_data';[m
+               [m
+[32m+[m[32m              const Card = isInsufficient ? InsufficientAxisCard : VerifiedAxisCard;[m
+               return ([m
+[31m-                <div key={axisName} className={`p-6 rounded-2xl border backdrop-blur-sm transition-all ${isInsufficient ? 'bg-slate-900/30 border-dashed border-slate-700' : 'bg-white/5 border-white/10'}`}>[m
+[32m+[m[32m                <Card key={axisName}>[m
+                   <div className="flex items-start justify-between mb-4">[m
+                     <h3 className="text-lg font-medium capitalize">{axisName.replace('_', ' ')}</h3>[m
+                     {isInsufficient ? ([m
+[36m@@ -85,10 +77,7 @@[m [mexport default async function CompanyProfile({ params }: { params: Promise<{ id:[m
+                         Insufficient Data[m
+                       </span>[m
+                     ) : ([m
+[31m-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">[m
+[31m-                        <CheckCircle2 className="w-3 h-3 mr-1" />[m
+[31m-                        Verified Active[m
+[31m-                      </span>[m
+[32m+[m[32m                      <VerifiedActiveBadge />[m
+                     )}[m
+                   </div>[m
+ [m
+[36m@@ -107,14 +96,14 @@[m [mexport default async function CompanyProfile({ params }: { params: Promise<{ id:[m
+                         <div key={claim.id} className="p-4 rounded-xl bg-black/20 border border-white/5">[m
+                           <p className="text-slate-200 mb-3">{claim.statement_text}</p>[m
+                           <div className="flex items-center gap-3 text-xs text-slate-400">[m
+[31m-                            {getTierBadge(claim.evidence_tier)}[m
+[32m+[m[32m                            <TierBadge tier={claim.evidence_tier} />[m
+                             <span>Expires: {claim.expires_at}</span>[m
+                           </div>[m
+                         </div>[m
+                       ))}[m
+                     </div>[m
+                   )}[m
+[31m-                </div>[m
+[32m+[m[32m                </Card>[m
+               );[m
+             })}[m
+           </div>[m
+[1mdiff --git a/src/app/globals.css b/src/app/globals.css[m
+[1mindex a2dc41e..86343e4 100644[m
+[1m--- a/src/app/globals.css[m
+[1m+++ b/src/app/globals.css[m
+[36m@@ -24,3 +24,24 @@[m [mbody {[m
+   color: var(--foreground);[m
+   font-family: Arial, Helvetica, sans-serif;[m
+ }[m
+[32m+[m
+[32m+[m[32m/* ---- Company profile motion (meaningful, subtle) ---- */[m
+[32m+[m[32m.frl-trace-track { height: 2px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden; }[m
+[32m+[m[32m.frl-trace-line { height: 100%; width: 100%; background: rgba(52,211,153,0.55); transform-origin: left; }[m
+[32m+[m[32m.frl-live-dot { width: 6px; height: 6px; border-radius: 9999px; background: #34d399; margin-right: 6px; display: inline-block; }[m
+[32m+[m[32m.frl-tip {[m
+[32m+[m[32m  position: absolute; left: 0; top: calc(100% + 8px); width: 16rem; z-index: 20;[m
+[32m+[m[32m  padding: 0.6rem 0.75rem; border-radius: 0.75rem; font-size: 0.75rem; line-height: 1.4; color: #cbd5e1;[m
+[32m+[m[32m  background: rgba(15,23,42,0.97); border: 1px solid rgba(255,255,255,0.12);[m
+[32m+[m[32m  opacity: 0; visibility: hidden; pointer-events: none; transform-origin: top left;[m
+[32m+[m[32m}[m
+[32m+[m[32m.frl-tier:hover .frl-tip, .frl-tier:focus-within .frl-tip { opacity: 1; visibility: visible; }[m
+[32m+[m
+[32m+[m[32m@media (prefers-reduced-motion: no-preference) {[m
+[32m+[m[32m  .frl-trace-line { transform: scaleX(0); }[m
+[32m+[m[32m  .frl-axis[data-drawn="true"] .frl-trace-line { transform: scaleX(1); transition: transform 750ms cubic-bezier(0.22, 1, 0.36, 1); }[m
+[32m+[m[32m  .frl-live-dot { animation: frl-breathe 3s ease-in-out infinite; }[m
+[32m+[m[32m  .frl-tip { transform: scale(0.94) translateY(4px); transition: opacity 120ms ease-out, transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1), visibility 0s linear 280ms; }[m
+[32m+[m[32m  .frl-tier:hover .frl-tip, .frl-tier:focus-within .frl-tip { transform: none; transition-delay: 0s; }[m
+[32m+[m[32m}[m
+[32m+[m[32m@keyframes frl-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }[m
