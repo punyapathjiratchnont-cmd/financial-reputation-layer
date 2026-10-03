@@ -24,6 +24,17 @@ import {
   Lock,
   XCircle,
   Check,
+  Search,
+  ArrowRight,
+  ChevronRight,
+  Building2,
+  Award,
+  BarChart3,
+  Layers,
+  Clock,
+  Shield,
+  Eye,
+  SlidersHorizontal
 } from 'lucide-react';
 import { calculateReputation, ReputationResult, ReputationLevel, UserFinancialData } from '@/lib/reputationEngine';
 import { MOCK_FINANCIAL_PROFILES } from '@/lib/mockFinancialData';
@@ -33,14 +44,17 @@ import { ScoreHistoryChart } from './ScoreHistoryChart';
 import { FinancialInputModal } from './FinancialInputModal';
 import { useLanguage } from '@/lib/i18n';
 
-
-
 interface ReputationEngineViewProps {
   userId?: string;
 }
 
+export type MainNavTab = 'dashboard' | 'my_reputation' | 'verify' | 'proofs' | 'reputation_data';
+
 export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProps) {
   const { language } = useLanguage();
+
+  // Navigation Tab State
+  const [activeTab, setActiveTab] = useState<MainNavTab>('dashboard');
 
   // Mode state: 'real' or 'demo'
   const [dataMode, setDataMode] = useState<'real' | 'demo'>('real');
@@ -61,14 +75,14 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
   const [aiLoading, setAiLoading] = useState<boolean>(true);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  // Phase 5: Reputation Proof State
+  // Reputation Proof State
   const [proofs, setProofs] = useState<ReputationProof[]>([]);
   const [proofsLoading, setProofsLoading] = useState<boolean>(false);
   const [generatingProof, setGeneratingProof] = useState<boolean>(false);
   const [copiedProofId, setCopiedProofId] = useState<string | null>(null);
   const [proofError, setProofError] = useState<string | null>(null);
 
-  // Phase 6: Controlled Reputation Share State
+  // Selective Disclosure Share State
   const [shares, setShares] = useState<ReputationShare[]>([]);
   const [sharesLoading, setSharesLoading] = useState<boolean>(false);
   const [shareModalOpen, setShareModalOpen] = useState<boolean>(false);
@@ -78,6 +92,12 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
   const [creatingShare, setCreatingShare] = useState<boolean>(false);
   const [copiedShareToken, setCopiedShareToken] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
+
+  // Verify Company Input & Lookup State (Section 6 & 7)
+  const [verifyInput, setVerifyInput] = useState<string>('');
+  const [verifyingCompany, setVerifyingCompany] = useState<boolean>(false);
+  const [verificationResult, setVerificationResult] = useState<any | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   // Fetch Shares
   const fetchShares = useCallback(async () => {
@@ -95,63 +115,6 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
     }
   }, [userId]);
 
-  // Create Share Link Handler
-  const handleCreateShare = async () => {
-    if (!selectedProofForShare) return;
-    setCreatingShare(true);
-    setShareError(null);
-    try {
-      const res = await fetch('/api/reputation/share', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          proofId: selectedProofForShare.id,
-          disclosureLevel: selectedDisclosureLevel,
-          expiresInDays: selectedExpiryDays,
-          userId,
-        }),
-      });
-
-      if (res.ok) {
-        await fetchShares();
-        setShareModalOpen(false);
-        setSelectedProofForShare(null);
-      } else {
-        const data = await res.json();
-        setShareError(data.error || 'Failed to create share link.');
-      }
-    } catch (err) {
-      setShareError('Network error creating share link.');
-    } finally {
-      setCreatingShare(false);
-    }
-  };
-
-  // Revoke Share Handler
-  const handleRevokeShare = async (shareToken: string) => {
-    try {
-      const res = await fetch('/api/reputation/share/revoke', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shareToken, userId }),
-      });
-
-      if (res.ok) {
-        await fetchShares();
-      }
-    } catch (err) {
-      console.error('Failed to revoke share:', err);
-    }
-  };
-
-  // Copy Share Link
-  const handleCopyShareLink = (shareToken: string) => {
-    const url = `${window.location.origin}/verify/${shareToken}`;
-    navigator.clipboard.writeText(url);
-    setCopiedShareToken(shareToken);
-    setTimeout(() => setCopiedShareToken(null), 2500);
-  };
-
   // Fetch Proofs
   const fetchProofs = useCallback(async () => {
     setProofsLoading(true);
@@ -168,57 +131,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
     }
   }, [userId]);
 
-
-  // Generate Proof Handler
-  const handleGenerateProof = async () => {
-    setGeneratingProof(true);
-    setProofError(null);
-    try {
-      const res = await fetch('/api/reputation/proof', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      });
-
-      if (res.ok) {
-        await fetchProofs();
-      } else {
-        const data = await res.json();
-        setProofError(data.error || 'Failed to generate reputation proof.');
-      }
-    } catch (err) {
-      setProofError('Network error generating proof.');
-    } finally {
-      setGeneratingProof(false);
-    }
-  };
-
-  // Revoke Proof Handler
-  const handleRevokeProof = async (proofId: string) => {
-    try {
-      const res = await fetch('/api/reputation/proof/revoke', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proofId, userId }),
-      });
-
-      if (res.ok) {
-        await fetchProofs();
-      }
-    } catch (err) {
-      console.error('Failed to revoke proof:', err);
-    }
-  };
-
-  // Copy Verification Link
-  const handleCopyLink = (proofId: string) => {
-    const url = `${window.location.origin}/verify/${proofId}`;
-    navigator.clipboard.writeText(url);
-    setCopiedProofId(proofId);
-    setTimeout(() => setCopiedProofId(null), 2500);
-  };
-
-  // Fetch Real Reputation Data from API
+  // Fetch Real Reputation Data
   const fetchRealData = useCallback(async () => {
     setLoading(true);
     try {
@@ -248,9 +161,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
     fetchShares();
   }, [fetchRealData, fetchProofs, fetchShares]);
 
-
-
-  // Compute active data based on mode
+  // Active reputation data
   const isDemo = dataMode === 'demo';
   const demoProfile = MOCK_FINANCIAL_PROFILES[selectedProfileKey] || MOCK_FINANCIAL_PROFILES.normal;
 
@@ -264,7 +175,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
 
   const activeHistory = isDemo ? demoProfile.history : realHistory;
 
-  // Fetch AI Analysis when active data changes
+  // Fetch AI Analysis
   const fetchAIAnalysis = useCallback(async () => {
     if (!activeReputation) {
       setAnalysis(null);
@@ -303,20 +214,204 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
     fetchAIAnalysis();
   }, [fetchAIAnalysis]);
 
-  const getLevelBadge = (level: ReputationLevel) => {
-    switch (level) {
-      case 'Excellent':
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">EXCELLENT</span>;
-      case 'Good':
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">GOOD</span>;
-      case 'Fair':
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">FAIR</span>;
-      case 'Low':
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">LOW</span>;
+  // Handlers
+  const handleGenerateProof = async () => {
+    setGeneratingProof(true);
+    setProofError(null);
+    try {
+      const res = await fetch('/api/reputation/proof', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (res.ok) {
+        await fetchProofs();
+        setActiveTab('proofs');
+      } else {
+        const data = await res.json();
+        setProofError(data.error || 'Failed to generate reputation proof.');
+      }
+    } catch (err) {
+      setProofError('Network error generating proof.');
+    } finally {
+      setGeneratingProof(false);
     }
   };
 
-  // FINANCIAL METRICS CALCULATION (Section 2: Audited Formulas & Definitions)
+  const handleCreateShare = async () => {
+    if (!selectedProofForShare) return;
+    setCreatingShare(true);
+    setShareError(null);
+    try {
+      const res = await fetch('/api/reputation/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proofId: selectedProofForShare.id,
+          disclosureLevel: selectedDisclosureLevel,
+          expiresInDays: selectedExpiryDays,
+          userId,
+        }),
+      });
+
+      if (res.ok) {
+        await fetchShares();
+        setShareModalOpen(false);
+        setSelectedProofForShare(null);
+        setActiveTab('proofs');
+      } else {
+        const data = await res.json();
+        setShareError(data.error || 'Failed to create share link.');
+      }
+    } catch (err) {
+      setShareError('Network error creating share link.');
+    } finally {
+      setCreatingShare(false);
+    }
+  };
+
+  const handleRevokeProof = async (proofId: string) => {
+    try {
+      const res = await fetch('/api/reputation/proof/revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proofId, userId }),
+      });
+      if (res.ok) await fetchProofs();
+    } catch (err) {
+      console.error('Failed to revoke proof:', err);
+    }
+  };
+
+  const handleRevokeShare = async (shareToken: string) => {
+    try {
+      const res = await fetch('/api/reputation/share/revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareToken, userId }),
+      });
+      if (res.ok) await fetchShares();
+    } catch (err) {
+      console.error('Failed to revoke share:', err);
+    }
+  };
+
+  const handleCopyLink = (text: string, isShare = false) => {
+    const url = text.startsWith('http') ? text : `${window.location.origin}/verify/${text}`;
+    navigator.clipboard.writeText(url);
+    if (isShare) {
+      setCopiedShareToken(text);
+      setTimeout(() => setCopiedShareToken(null), 2500);
+    } else {
+      setCopiedProofId(text);
+      setTimeout(() => setCopiedProofId(null), 2500);
+    }
+  };
+
+  // Perform Company Verification Lookup (Section 6 & 7)
+  const handleVerifyCompanyLookup = async (tokenToUse?: string) => {
+    const query = (tokenToUse || verifyInput).trim();
+    if (!query) return;
+
+    // Extract ID from full URL if pasted
+    let cleanId = query;
+    if (query.includes('/verify/')) {
+      cleanId = query.split('/verify/')[1].trim();
+    }
+
+    setVerifyingCompany(true);
+    setVerificationError(null);
+    setVerificationResult(null);
+
+    try {
+      // 1. Try share endpoint if starts with share_
+      if (cleanId.startsWith('share_')) {
+        const res = await fetch(`/api/reputation/share/${cleanId}`);
+        const data = await res.json();
+        if (res.ok && data.valid !== undefined) {
+          setVerificationResult({ type: 'share', token: cleanId, ...data });
+          setVerifyingCompany(false);
+          return;
+        }
+      }
+
+      // 2. Try proof endpoint if starts with proof_
+      if (cleanId.startsWith('proof_')) {
+        const res = await fetch(`/api/reputation/verify/${cleanId}`);
+        const data = await res.json();
+        if (res.ok && data.valid !== undefined) {
+          setVerificationResult({ type: 'proof', token: cleanId, ...data });
+          setVerifyingCompany(false);
+          return;
+        }
+      }
+
+      // 3. General verification fallback
+      const proofRes = await fetch(`/api/reputation/verify/${cleanId}`);
+      if (proofRes.ok) {
+        const data = await proofRes.json();
+        setVerificationResult({ type: 'proof', token: cleanId, ...data });
+        setVerifyingCompany(false);
+        return;
+      }
+
+      const shareRes = await fetch(`/api/reputation/share/${cleanId}`);
+      if (shareRes.ok) {
+        const data = await shareRes.json();
+        setVerificationResult({ type: 'share', token: cleanId, ...data });
+        setVerifyingCompany(false);
+        return;
+      }
+
+      setVerificationError('No verified business reputation record found for the provided ID or link.');
+    } catch (err) {
+      setVerificationError('Network error performing verification lookup.');
+    } finally {
+      setVerifyingCompany(false);
+    }
+  };
+
+  // Section 10 & 21: B2B Dimensions Mapping Layer
+  const getB2BDimensions = (factors?: ReputationResult['factors']) => {
+    if (!factors) {
+      return {
+        paymentReliability: 'Moderate',
+        businessReliability: 'Moderate',
+        financialStability: 'Moderate',
+        transactionHistory: 'Moderate',
+      };
+    }
+
+    const payScore = factors.paymentReliability.score;
+    const trxScore = factors.transactionHistory.score;
+    const incScore = factors.incomeConsistency.score;
+    const expScore = factors.spendingStability.score;
+
+    return {
+      paymentReliability: payScore >= 750 ? 'Strong' : payScore >= 650 ? 'Good' : payScore >= 500 ? 'Moderate' : 'Needs Improvement',
+      businessReliability: trxScore >= 700 && payScore >= 650 ? 'Strong' : trxScore >= 550 ? 'Good' : 'Moderate',
+      financialStability: incScore >= 650 && expScore >= 600 ? 'Stable' : 'Moderate',
+      transactionHistory: trxScore >= 750 ? 'Strong' : trxScore >= 650 ? 'Good' : trxScore >= 500 ? 'Moderate' : 'Limited',
+    };
+  };
+
+  const b2bDimensions = getB2BDimensions(activeReputation?.factors);
+
+  const getLevelBadge = (level: ReputationLevel | string) => {
+    switch (level) {
+      case 'Excellent':
+        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">EXCELLENT</span>;
+      case 'Good':
+        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">GOOD</span>;
+      case 'Fair':
+        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30">FAIR</span>;
+      default:
+        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/30">LOW</span>;
+    }
+  };
+
+  // Financial Audited Ratios (Section 9)
   const monthlyInc = activeFinancialData?.income?.monthly || 0;
   const monthlyExp = activeFinancialData?.expenses?.monthlyAvg || 0;
   const monthlySav = activeFinancialData?.savings?.monthlyContribution || 0;
@@ -324,63 +419,104 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
   const totalDebt = activeFinancialData?.debts?.totalDebt || 0;
   const monthlyDebtService = activeFinancialData?.debts?.monthlyDebtService || 0;
 
-  // Exact audited derived formulas:
-  // 1. Savings Rate: (Monthly Contribution / Monthly Income) * 100
   const savingsRate = monthlyInc > 0 ? ((monthlySav / monthlyInc) * 100).toFixed(1) : '0.0';
-
-  // 2. Expense Ratio: (Monthly Expenses / Monthly Income) * 100
   const expenseRatio = monthlyInc > 0 ? ((monthlyExp / monthlyInc) * 100).toFixed(1) : '0.0';
-
-  // 3. Debt Service to Income Ratio (DTI): (Monthly Debt Service / Monthly Income) * 100
   const dtiRatio = monthlyInc > 0 ? ((monthlyDebtService / monthlyInc) * 100).toFixed(1) : '0.0';
 
-  // 4. Debt-to-Savings Ratio: (Total Debt / Total Savings) * 100
-  const debtToSavingsRatio = totalSav > 0 ? ((totalDebt / totalSav) * 100).toFixed(1) : '0.0';
-
-  const factorList = activeReputation ? Object.values(activeReputation.factors) : [];
-
   return (
-    <div className="mt-12 p-6 md:p-8 rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-md space-y-8">
-      {/* Header & Mode Switcher */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Activity className="w-6 h-6 text-indigo-400" />
-            <h2 className="text-2xl font-bold text-slate-100">Financial Reputation Dashboard</h2>
-          </div>
-          <p className="text-xs text-slate-400">
-            Real user financial engine & reputation history (300–850 range).
-          </p>
+    <div className="mt-8 space-y-8">
+      {/* SECTION 3: NEW MAIN NAVIGATION BAR */}
+      <div className="p-2 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-xl shadow-xl flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'dashboard'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            Dashboard
+          </button>
+
+          <button
+            onClick={() => setActiveTab('my_reputation')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'my_reputation'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+            }`}
+          >
+            <Award className="w-4 h-4" />
+            My Reputation
+          </button>
+
+          <button
+            onClick={() => setActiveTab('verify')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'verify'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Verify Company
+          </button>
+
+          <button
+            onClick={() => setActiveTab('proofs')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'proofs'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+            }`}
+          >
+            <Lock className="w-4 h-4" />
+            Proofs ({proofs.filter(p => p.status === 'active').length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('reputation_data')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'reputation_data'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Reputation Data
+          </button>
         </div>
 
-        {/* Mode Selector & Edit Trigger */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex items-center rounded-xl bg-black/40 border border-white/10 p-1 text-xs font-medium">
+        {/* Mode Selector & Status Badge */}
+        <div className="flex items-center gap-2 px-2">
+          <div className="inline-flex items-center rounded-xl bg-black/40 border border-white/10 p-1 text-[11px]">
             <button
               onClick={() => setDataMode('real')}
-              className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
-                dataMode === 'real' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              className={`px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+                dataMode === 'real' ? 'bg-indigo-600/80 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <UserCheck className="w-3.5 h-3.5" />
-              Real User Data
+              <UserCheck className="w-3 h-3" />
+              Real Data
             </button>
             <button
               onClick={() => setDataMode('demo')}
-              className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
-                dataMode === 'demo' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              className={`px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+                dataMode === 'demo' ? 'bg-indigo-600/80 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Sliders className="w-3.5 h-3.5" />
+              <Sliders className="w-3 h-3" />
               Demo Mode
             </button>
           </div>
 
-          {isDemo ? (
+          {isDemo && (
             <select
               value={selectedProfileKey}
               onChange={(e) => setSelectedProfileKey(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-slate-200 text-xs focus:outline-none"
+              className="px-2.5 py-1 rounded-xl bg-black/40 border border-white/15 text-slate-200 text-[11px] focus:outline-none"
             >
               {Object.entries(MOCK_FINANCIAL_PROFILES).map(([key, item]) => (
                 <option key={key} value={key} className="bg-slate-900 text-slate-200">
@@ -388,622 +524,378 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
                 </option>
               ))}
             </select>
-          ) : (
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 text-xs font-medium transition-colors flex items-center gap-1.5"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              Update Financial Data
-            </button>
           )}
         </div>
       </div>
 
-      {/* DEMO MODE WARNING BADGE */}
+      {/* DEMO MODE NOTICE (Section 17) */}
       {isDemo && (
-        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-2">
-          <Info className="w-4 h-4 shrink-0" />
-          <span>
-            <strong>DEMO MODE ACTIVE:</strong> Currently displaying mock financial test profile (<code className="bg-black/30 px-1 rounded">{selectedProfileKey}</code>). Switch to Real User Data for live metrics.
-          </span>
-        </div>
-      )}
-
-      {/* EMPTY STATE HANDLING (Requirement 12) */}
-      {!isDemo && !loading && !realHasData && (
-        <div className="p-10 rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 text-center space-y-4">
-          <PieChart className="w-12 h-12 text-slate-600 mx-auto" />
-          <div>
-            <h3 className="text-lg font-medium text-slate-200">Financial data is not available yet</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-              Add your verified monthly income, savings, and expense details to generate your official Financial Reputation Score.
-            </p>
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 shrink-0 text-amber-400" />
+            <span>
+              <strong>DEMO MODE:</strong> Currently using sample business data profile (<code className="bg-black/40 px-1.5 py-0.5 rounded text-amber-200">{selectedProfileKey}</code>).
+            </span>
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors inline-flex items-center gap-2"
+            onClick={() => setDataMode('real')}
+            className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-bold transition-colors shrink-0"
           >
-            <PlusCircle className="w-4 h-4" />
-            Add Financial Data
+            Switch to Real Data
           </button>
         </div>
       )}
 
-      {/* MAIN DASHBOARD CONTENT (When data exists) */}
-      {(isDemo || realHasData) && activeReputation && (
+      {/* SECTION 16: EMPTY STATE HANDLING */}
+      {!isDemo && !loading && !realHasData && (
+        <div className="p-12 rounded-3xl border border-dashed border-slate-800 bg-slate-900/40 backdrop-blur-md text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
+            <PieChart className="w-8 h-8" />
+          </div>
+          <div className="max-w-md mx-auto space-y-1">
+            <h3 className="text-xl font-bold text-slate-100">Your Business Reputation is not ready yet</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Add your financial and transaction information to calculate your first reputation score and generate verifiable business signals.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all inline-flex items-center gap-2 shadow-lg shadow-indigo-600/30"
+          >
+            <PlusCircle className="w-4 h-4" />
+            Add Reputation Data
+          </button>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 1: DASHBOARD (Sections 4, 5, 6)                                       */}
+      {/* ========================================================================= */}
+      {activeTab === 'dashboard' && (isDemo || realHasData) && activeReputation && (
         <div className="space-y-8">
-          {/* Main Score & Level Card */}
-          <div className="grid md:grid-cols-3 gap-6 items-center bg-black/30 p-6 rounded-2xl border border-white/5">
-            <div className="text-center md:text-left space-y-1">
-              <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Engine Computed Score</span>
-              <div className="flex items-baseline justify-center md:justify-start gap-3">
-                <span className="text-5xl font-extrabold tracking-tight text-white">{activeReputation.score}</span>
-                <span className="text-sm font-medium text-slate-400">/ 850</span>
-              </div>
-              <div className="pt-1">{getLevelBadge(activeReputation.level)}</div>
-            </div>
-
-            {/* SVG Score History Line Chart (Requirement 8) */}
-            <div className="md:col-span-2 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6">
-              <ScoreHistoryChart history={activeHistory} />
-            </div>
-          </div>
-
-          {/* FINANCIAL OVERVIEW SUMMARY CARDS & AUDITED METRICS (Section 2 & Requirement 9) */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <h3 className="text-sm font-semibold uppercase text-slate-300 tracking-wider flex items-center gap-1.5">
-                <DollarSign className="w-4 h-4 text-emerald-400" />
-                Financial Overview Summary
-              </h3>
-              <span className="text-xs text-slate-500 font-mono">FINANCIAL METRICS (NOT SCORES)</span>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[11px] text-slate-400">Monthly Income</span>
-                <span className="block text-lg font-bold text-slate-100">฿{monthlyInc.toLocaleString()}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[11px] text-slate-400">Monthly Expenses</span>
-                <span className="block text-lg font-bold text-slate-100">฿{monthlyExp.toLocaleString()}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[11px] text-slate-400">Total Liquid Savings</span>
-                <span className="block text-lg font-bold text-emerald-400">฿{totalSav.toLocaleString()}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[11px] text-slate-400">Total Debt Liabilities</span>
-                <span className="block text-lg font-bold text-amber-400">฿{totalDebt.toLocaleString()}</span>
-              </div>
-            </div>
-
-            {/* Audited Derived Ratios */}
-            <div className="grid grid-cols-3 gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-center text-xs">
+          {/* SECTION 4: MY BUSINESS REPUTATION HERO CARD */}
+          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/10 pb-6">
               <div>
-                <span className="text-slate-400 block mb-0.5">Savings Rate</span>
-                <strong className="text-emerald-400 text-sm font-mono">{savingsRate}%</strong>
-                <span className="block text-[10px] text-slate-500 mt-0.5">(Savings / Income)</span>
+                <span className="text-xs font-mono text-indigo-400 uppercase tracking-widest font-semibold flex items-center gap-1.5 mb-1">
+                  <ShieldCheck className="w-4 h-4" />
+                  B2B Business Reputation Signal
+                </span>
+                <h2 className="text-3xl font-extrabold text-slate-100">My Business Reputation</h2>
               </div>
-              <div>
-                <span className="text-slate-400 block mb-0.5">Expense Ratio</span>
-                <strong className="text-indigo-400 text-sm font-mono">{expenseRatio}%</strong>
-                <span className="block text-[10px] text-slate-500 mt-0.5">(Expenses / Income)</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block mb-0.5">Debt Service Ratio (DTI)</span>
-                <strong className="text-amber-400 text-sm font-mono">{dtiRatio}%</strong>
-                <span className="block text-[10px] text-slate-500 mt-0.5">(Debt Payment / Income)</span>
-              </div>
-            </div>
-          </div>
 
-          {/* FACTOR BREAKDOWN (Requirement 7) */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <h3 className="text-sm font-semibold uppercase text-slate-300 tracking-wider">
-                Factor Breakdown & Score Impact
-              </h3>
-              <span className="text-xs text-slate-400 font-mono">6 FRL ENGINE FACTORS</span>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {factorList.map((factor) => (
-                <div
-                  key={factor.name}
-                  className="p-4 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between hover:border-white/10 transition-colors"
-                >
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="text-sm font-semibold text-slate-200">{factor.name}</h4>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
-                        {factor.refAxis}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-400">
-                      <span>Score: <strong className="text-slate-100">{factor.score}</strong></span>
-                      <span>•</span>
-                      <span>Weight: {(factor.weight * 100).toFixed(0)}%</span>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded ${
-                        factor.impact >= 0
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                      }`}
-                    >
-                      {factor.impact >= 0 ? `+${factor.impact}` : factor.impact} impact
-                    </span>
-                    <span className="block text-[11px] text-slate-500 mt-1">{factor.level}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* AI FINANCIAL ANALYSIS LAYER (Phase 4 Integration) */}
-          <div className="pt-6 border-t border-white/10 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-100">
-                    {language === 'th' ? 'การวิเคราะห์การเงินด้วย AI (AI Financial Analysis)' : 'AI Financial Analysis'}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    {language === 'th'
-                      ? 'AI สรุปและอธิบายที่มาของคะแนนจาก Reputation Engine โดยไม่มีอำนาจแก้ไขคะแนน'
-                      : 'Analytical insight layer strictly summarizing engine factors without score modification power.'}
-                  </p>
-                </div>
-              </div>
-              <span className="text-[11px] font-mono px-2 py-1 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 self-start md:self-auto flex items-center gap-1">
-                {analysis?.provider === 'gemini-api' ? 'Real Gemini LLM API' : 'Rule-Engine Fallback'}
-              </span>
-            </div>
-
-            {/* USER-FACING AI DISCLAIMER (Section 15) */}
-            <div className="p-3 rounded-xl bg-slate-900 border border-white/10 text-[11px] text-slate-400 flex items-start gap-2">
-              <FileText className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-              <span>
-                {language === 'th'
-                  ? 'บทวิเคราะห์โดย AI มีวัตถุประสงค์เพื่อการอธิบายข้อมูลเท่านั้น และประมวลผลจากข้อมูลทางการเงินที่ปรากฏในโปรไฟล์ของคุณ AI ไม่มีอำนาจในการกำหนดคะแนน reputation score หรือถือเป็นคำแนะนำทางการลงทุน การให้สินเชื่อ หรืออนุมัติวงเงินใดๆ'
-                  : 'AI-generated insights are informational and based strictly on the financial data available in your profile. They do not determine your reputation score or constitute financial, lending, or investment decisions.'}
-              </span>
-            </div>
-
-            {/* Loading State */}
-            {aiLoading && (
-              <div className="p-8 rounded-2xl bg-black/20 border border-white/5 text-center space-y-3">
-                <RefreshCw className="w-6 h-6 text-indigo-400 animate-spin mx-auto" />
-                <p className="text-xs text-slate-400">
-                  {language === 'th' ? 'กำลังวิเคราะห์ข้อมูลทางการเงิน...' : 'Analyzing financial data...'}
-                </p>
-              </div>
-            )}
-
-            {/* Error State */}
-            {aiError && !aiLoading && (
-              <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center space-y-3">
-                <AlertTriangle className="w-6 h-6 text-rose-400 mx-auto" />
-                <p className="text-sm font-medium text-rose-300">
-                  {language === 'th' ? 'ไม่สามารถประมวลผลการวิเคราะห์ได้ในขณะนี้' : 'Unable to generate analysis right now.'}
-                </p>
+              {/* Primary Actions (Section 5) */}
+              <div className="flex items-center gap-3 flex-wrap">
                 <button
-                  onClick={fetchAIAnalysis}
-                  className="px-4 py-1.5 rounded-lg bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 text-xs font-medium transition-colors"
+                  onClick={() => setActiveTab('my_reputation')}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2"
                 >
-                  {language === 'th' ? 'ลองใหม่อีกครั้ง (Retry)' : 'Retry Analysis'}
+                  <Award className="w-4 h-4" />
+                  View My Reputation
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('verify')}
+                  className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 border border-white/10 text-xs font-bold transition-all flex items-center gap-2"
+                >
+                  <Search className="w-4 h-4 text-indigo-400" />
+                  Verify a Company
+                </button>
+
+                <button
+                  onClick={handleGenerateProof}
+                  disabled={generatingProof}
+                  className="px-4 py-2.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 text-xs font-semibold transition-all flex items-center gap-1.5"
+                >
+                  {generatingProof ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
+                  Share Reputation
                 </button>
               </div>
-            )}
+            </div>
 
-            {/* Successful Analysis Output */}
-            {analysis && !aiLoading && !aiError && (
-              <div className="space-y-6">
-                {/* Executive Summary & AI Explanation */}
-                <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-indigo-300">
-                    <span className="flex items-center gap-1.5">
-                      <Info className="w-4 h-4 text-indigo-400" />
-                      {language === 'th' ? 'คำอธิบายสรุปที่มาของคะแนนโดย AI' : 'AI Explanation & Executive Summary'}
-                    </span>
-                    <span className="font-mono text-[10px] text-indigo-400/80">
-                      Provider: {analysis.provider} ({analysis.model || 'v1'})
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-200 leading-relaxed">{analysis.summary}</p>
+            {/* Central Score & 4 Major B2B Dimensions */}
+            <div className="grid md:grid-cols-3 gap-8 items-center">
+              {/* Central Score Display */}
+              <div className="text-center md:text-left space-y-2 p-6 rounded-2xl bg-black/30 border border-white/5">
+                <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block">Official FRL Score</span>
+                <div className="flex items-baseline justify-center md:justify-start gap-3">
+                  <span className="text-6xl font-black tracking-tight text-white">{activeReputation.score}</span>
+                  <span className="text-sm text-slate-400 font-medium">/ 850</span>
+                </div>
+                <div className="pt-1">{getLevelBadge(activeReputation.level)}</div>
+                <p className="text-[11px] text-slate-400 pt-2 border-t border-white/5">
+                  Calculated engine-side from verified financial behavior.
+                </p>
+              </div>
+
+              {/* 4 Major Reputation Dimensions Grid (Section 4 & 10) */}
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-xs text-slate-400 font-medium block">Payment Reliability</span>
+                  <strong className="text-lg font-extrabold text-emerald-400 block">{b2bDimensions.paymentReliability}</strong>
+                  <span className="text-[10px] text-slate-500 block">On-time obligation performance</span>
                 </div>
 
-                {/* Strengths & Concerns Grid */}
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Strengths */}
-                  <div className="p-5 rounded-2xl bg-black/20 border border-emerald-500/20 space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      {language === 'th' ? 'จุดแข็งที่สนับสนุนคะแนน (Strengths)' : 'Verified Strengths'}
-                    </h4>
-                    {analysis.strengths.length === 0 ? (
-                      <p className="text-xs text-slate-500 italic">No specific strengths flagged for current baseline.</p>
-                    ) : (
-                      <ul className="space-y-2 text-xs text-slate-300">
-                        {analysis.strengths.map((str, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-emerald-400 font-bold shrink-0">✓</span>
-                            <span>{str}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  {/* Areas to Monitor */}
-                  <div className="p-5 rounded-2xl bg-black/20 border border-amber-500/20 space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4 text-amber-400" />
-                      {language === 'th' ? 'ปัจจัยที่ควรติดตาม (Areas to Monitor)' : 'Areas to Monitor'}
-                    </h4>
-                    {analysis.concerns.length === 0 ? (
-                      <p className="text-xs text-slate-500 italic">No risk concerns detected.</p>
-                    ) : (
-                      <ul className="space-y-2 text-xs text-slate-300">
-                        {analysis.concerns.map((con, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-amber-400 font-bold shrink-0">△</span>
-                            <span>{con}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-xs text-slate-400 font-medium block">Business Reliability</span>
+                  <strong className="text-lg font-extrabold text-indigo-400 block">{b2bDimensions.businessReliability}</strong>
+                  <span className="text-[10px] text-slate-500 block">Operational transaction signals</span>
                 </div>
 
-                {/* Trend & Actionable Recommendations */}
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Trend Analysis */}
-                  <div className="p-5 rounded-2xl bg-black/20 border border-white/5 space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                      <TrendingUp className="w-4 h-4 text-indigo-400" />
-                      {language === 'th' ? 'การวิเคราะห์แนวโน้ม (Trend Analysis)' : 'Trend Analysis'}
-                    </h4>
-                    <ul className="space-y-2 text-xs text-slate-300">
-                      {analysis.trends.map((tr, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <span className="text-indigo-400 font-bold shrink-0">↑</span>
-                          <span>{tr}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-xs text-slate-400 font-medium block">Financial Stability</span>
+                  <strong className="text-lg font-extrabold text-slate-200 block">{b2bDimensions.financialStability}</strong>
+                  <span className="text-[10px] text-slate-500 block">Consistency & liquidity stability</span>
+                </div>
 
-                  {/* Actionable Recommendations */}
-                  <div className="p-5 rounded-2xl bg-black/20 border border-white/5 space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                      <HelpCircle className="w-4 h-4 text-indigo-400" />
-                      {language === 'th' ? 'ข้อแนะนำเชิงสร้างสรรค์ (AI Recommendations)' : 'Non-Judgmental Guidance'}
-                    </h4>
-                    <ul className="space-y-2 text-xs text-slate-300">
-                      {analysis.recommendations.map((rec, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <span className="text-slate-400 font-bold shrink-0">•</span>
-                          <span>{rec}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-xs text-slate-400 font-medium block">Transaction History</span>
+                  <strong className="text-lg font-extrabold text-amber-400 block">{b2bDimensions.transactionHistory}</strong>
+                  <span className="text-[10px] text-slate-500 block">Historical activity duration</span>
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* Neutral Disclaimer (Section 10) */}
+            <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 text-xs text-slate-400 flex items-start gap-3 leading-relaxed">
+              <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <div>
+                Your Business Reputation is a signal generated from financial and transaction behavior available to FRL. It is intended to support business decisions and does not guarantee future business performance.
+              </div>
+            </div>
           </div>
 
-          {/* PHASE 5: REPUTATION VERIFICATION & PRIVACY-PRESERVING SHARING */}
-          <div className="pt-8 border-t border-white/10 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* SECTION 6: PROMINENT "VERIFY A COMPANY" CARD */}
+          <div className="p-8 rounded-3xl border border-indigo-500/20 bg-indigo-500/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Share2 className="w-5 h-5 text-indigo-400" />
-                  <h3 className="text-xl font-bold text-slate-100">
-                    {language === 'th' ? 'การยืนยันและแชร์ Reputation แบบรักษาความเป็นส่วนตัว' : 'Reputation Verification & Privacy-Preserving Sharing'}
-                  </h3>
-                </div>
-                <p className="text-xs text-slate-400">
-                  {language === 'th'
-                    ? 'สร้าง Reputation Proof snapshot เพื่อให้บุคคลอื่นตรวจสอบได้ โดยไม่เปิดเผยข้อมูลการเงินส่วนตัว'
-                    : 'Generate verifiable Reputation Proof snapshots for third parties without exposing raw financial details.'}
+                <h3 className="text-xl font-extrabold text-slate-100 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                  Verify a Company
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Review a company's verified FRL reputation information before doing business.
                 </p>
               </div>
 
               <button
-                onClick={handleGenerateProof}
-                disabled={generatingProof || (!isDemo && !realHasData)}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold transition-all shadow-md flex items-center gap-2 self-start md:self-auto"
+                onClick={() => setActiveTab('verify')}
+                className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 self-start sm:self-auto"
               >
-                {generatingProof ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ShieldCheck className="w-4 h-4" />
-                )}
-                Generate Reputation Proof
+                Go to Verification Center <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Privacy Notices (Requirements 1, 6, 19) */}
-            <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs space-y-1.5 text-slate-300">
-              <div className="font-semibold text-indigo-300 flex items-center gap-2">
-                <Lock className="w-4 h-4 text-emerald-400" />
-                <span>Privacy-First Verification Guarantee</span>
+            {/* Quick Verification Input */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={verifyInput}
+                  onChange={(e) => setVerifyInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleVerifyCompanyLookup()}
+                  placeholder="Enter FRL Verification Link or ID (e.g. proof_... or share_...)"
+                  className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/15 rounded-xl text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                />
               </div>
-              <p className="text-slate-300">
-                "Your financial details are never exposed through this verification link."
-              </p>
-              <p className="text-slate-400 italic text-[11px]">
-                "This proof represents a snapshot of your reputation at the time it was created."
-              </p>
+
+              <button
+                onClick={() => handleVerifyCompanyLookup()}
+                disabled={verifyingCompany || !verifyInput.trim()}
+                className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shrink-0 flex items-center justify-center gap-2"
+              >
+                {verifyingCompany ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                Verify Company
+              </button>
             </div>
 
-            {proofError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
-                {proofError}
+            {verificationError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{verificationError}</span>
               </div>
             )}
 
-            {/* Proof List (Requirements 8, 9, 18) */}
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Active & Historical Reputation Proofs
-              </h4>
-
-              {proofsLoading ? (
-                <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Loading verification proofs...
+            {/* Inline Result Render if Quick Lookup Triggered */}
+            {verificationResult && (
+              <div className="p-6 rounded-2xl bg-black/40 border border-white/10 space-y-4 text-left">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <span className="text-xs font-mono text-indigo-400 font-bold uppercase">Verification Lookup Result</span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    ✓ Verified by FRL
+                  </span>
                 </div>
-              ) : proofs.length === 0 ? (
-                <div className="p-8 rounded-2xl border border-dashed border-slate-800 bg-black/20 text-center text-slate-400 text-xs">
-                  No reputation proofs created yet. Click "Generate Reputation Proof" above to create your first privacy-preserving verification link.
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-xs text-slate-400 block">Business Reputation Score</span>
+                    <span className="text-4xl font-extrabold text-white block mt-1">{verificationResult.reputation?.score || 'N/A'}</span>
+                    {verificationResult.reputation?.level && (
+                      <div className="mt-1">{getLevelBadge(verificationResult.reputation.level)}</div>
+                    )}
+                  </div>
+
+                  <div className="text-xs text-slate-400 space-y-1 sm:text-right">
+                    <div>Status: <strong className="text-slate-200 capitalize">{verificationResult.status}</strong></div>
+                    <div>Verified: <strong className="text-slate-200">{new Date(verificationResult.verifiedAt).toLocaleDateString()}</strong></div>
+                    <div>Expires: <strong className="text-slate-200">{new Date(verificationResult.expiresAt).toLocaleDateString()}</strong></div>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {proofs.map((proof) => {
-                    const isExpired = proof.status === 'expired' || new Date(proof.expiresAt) < new Date();
-                    const isRevoked = proof.status === 'revoked';
-                    const isActive = proof.status === 'active' && !isExpired;
 
-                    return (
-                      <div
-                        key={proof.id}
-                        className={`p-5 rounded-2xl border transition-all ${
-                          isActive
-                            ? 'bg-white/[0.03] border-white/10 hover:border-white/20'
-                            : 'bg-slate-900/40 border-slate-800/80 opacity-75'
-                        }`}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-mono font-bold text-slate-200">
-                                Proof #{proof.id.substring(6, 14)}
-                              </span>
+                {/* Neutral B2B Disclosure Notice */}
+                <p className="text-[11px] text-slate-400 pt-3 border-t border-white/5 leading-relaxed">
+                  FRL verifies the reputation information shown here. This information is intended to support business decisions and does not guarantee future business performance.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-                              {isActive && (
-                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  ✓ Active Reputation Proof
-                                </span>
-                              )}
-
-                              {isRevoked && (
-                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center gap-1">
-                                  <XCircle className="w-3 h-3" />
-                                  Revoked
-                                </span>
-                              )}
-
-                              {isExpired && !isRevoked && (
-                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
-                                  <AlertTriangle className="w-3 h-3" />
-                                  Expired
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 flex-wrap text-xs text-slate-400 pt-1">
-                              <span>Score: <strong className="text-slate-100">{proof.score}</strong> ({proof.level})</span>
-                              <span>•</span>
-                              <span>Verified: {new Date(proof.verifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                              <span>•</span>
-                              <span>Expires: {new Date(proof.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                            </div>
-                          </div>
-
-                          {/* Actions */}
-                          <div className="flex items-center gap-2 shrink-0">
-                            <a
-                              href={`/verify/${proof.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-medium transition-colors flex items-center gap-1"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              View Proof
-                            </a>
-
-                            {isActive && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setSelectedProofForShare(proof);
-                                    setShareModalOpen(true);
-                                  }}
-                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors flex items-center gap-1 shadow-sm"
-                                >
-                                  <Share2 className="w-3.5 h-3.5" />
-                                  Create Share Link
-                                </button>
-
-                                <button
-                                  onClick={() => handleCopyLink(proof.id)}
-                                  className="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-200 text-xs font-medium transition-colors flex items-center gap-1"
-                                >
-                                  {copiedProofId === proof.id ? (
-                                    <>
-                                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                      Copied!
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="w-3.5 h-3.5" />
-                                      Copy Link
-                                    </>
-                                  )}
-                                </button>
-
-                                <button
-                                  onClick={() => handleRevokeProof(proof.id)}
-                                  className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium transition-colors flex items-center gap-1"
-                                >
-                                  <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                                  Revoke
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+      {/* ========================================================================= */}
+      {/* TAB 2: MY REPUTATION (Sections 8, 10, 13)                                 */}
+      {/* ========================================================================= */}
+      {activeTab === 'my_reputation' && (isDemo || realHasData) && activeReputation && (
+        <div className="space-y-8">
+          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
+            <div className="border-b border-white/10 pb-4">
+              <h2 className="text-2xl font-bold text-slate-100">My Business Reputation Details</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Detailed view of score breakdown, engine factors, historical trend, and AI analytical explanation.
+              </p>
             </div>
 
-            {/* PHASE 6: CONTROLLED REPUTATION SHARES MANAGEMENT */}
-            <div className="space-y-4 pt-6 border-t border-white/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                    <Share2 className="w-4 h-4 text-indigo-400" />
-                    Controlled Reputation Shares
-                  </h4>
-                  <p className="text-xs text-slate-400">
-                    Selective disclosure links created from your active Reputation Proofs.
+            {/* Score & Level Display */}
+            <div className="grid md:grid-cols-3 gap-6 items-center bg-black/30 p-6 rounded-2xl border border-white/5">
+              <div className="text-center md:text-left space-y-1">
+                <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Engine Computed Score</span>
+                <div className="flex items-baseline justify-center md:justify-start gap-3">
+                  <span className="text-5xl font-extrabold tracking-tight text-white">{activeReputation.score}</span>
+                  <span className="text-sm font-medium text-slate-400">/ 850</span>
+                </div>
+                <div className="pt-1">{getLevelBadge(activeReputation.level)}</div>
+              </div>
+
+              <div className="md:col-span-2 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6">
+                <ScoreHistoryChart history={activeHistory} />
+              </div>
+            </div>
+
+            {/* 4 B2B Dimensions Explanations (Section 10) */}
+            <div className="space-y-4 pt-2">
+              <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">
+                Major Reputation Dimensions
+              </h3>
+
+              <div className="grid sm:grid-cols-2 gap-4 text-xs">
+                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <strong className="text-slate-200 text-sm">Payment Reliability</strong>
+                    <span className="font-bold text-emerald-400">{b2bDimensions.paymentReliability}</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Evaluates how consistently financial obligations and supplier invoices are paid on time.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <strong className="text-slate-200 text-sm">Business Reliability</strong>
+                    <span className="font-bold text-indigo-400">{b2bDimensions.businessReliability}</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Signals derived from operational transaction behavior and counterparty consistency.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <strong className="text-slate-200 text-sm">Financial Stability</strong>
+                    <span className="font-bold text-slate-200">{b2bDimensions.financialStability}</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Signals related to revenue consistency, expense coverage, and liquid savings buffers.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <strong className="text-slate-200 text-sm">Transaction History</strong>
+                    <span className="font-bold text-amber-400">{b2bDimensions.transactionHistory}</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Signals derived from historical transaction activity, account duration, and bounced checks.
                   </p>
                 </div>
               </div>
+            </div>
 
-              {sharesLoading ? (
-                <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Loading selective disclosure links...
+            {/* SECTION 8 & 13: WHY IS MY SCORE LIKE THIS? (AI REPUTATION ANALYSIS) */}
+            <div className="pt-8 border-t border-white/10 space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-indigo-400" />
+                  <h3 className="text-xl font-bold text-slate-100">Why is my score like this?</h3>
                 </div>
-              ) : shares.length === 0 ? (
-                <div className="p-6 rounded-2xl border border-dashed border-slate-800 bg-black/20 text-center text-slate-400 text-xs">
-                  No selective disclosure links created yet. Click "Create Share Link" on any active proof above to generate a custom disclosure link.
+                <span className="text-[11px] font-mono px-2.5 py-1 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                  Reputation Analysis
+                </span>
+              </div>
+
+              {/* Disclaimer */}
+              <div className="p-3.5 rounded-xl bg-slate-900 border border-white/10 text-[11px] text-slate-400 flex items-start gap-2">
+                <FileText className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                <span>
+                  AI-generated insights are informational and based strictly on the financial data available in your profile. They do not determine your reputation score or constitute financial, lending, or investment decisions.
+                </span>
+              </div>
+
+              {aiLoading && (
+                <div className="p-8 text-center text-xs text-slate-400 space-y-2">
+                  <RefreshCw className="w-5 h-5 text-indigo-400 animate-spin mx-auto" />
+                  <p>Analyzing reputation factors...</p>
                 </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {shares.map((share) => {
-                    const isShareExpired = share.status === 'expired' || new Date(share.expiresAt) < new Date();
-                    const isShareRevoked = share.status === 'revoked';
-                    const isShareActive = share.status === 'active' && !isShareExpired;
+              )}
 
-                    const levelLabel =
-                      share.disclosureLevel === 'score_only'
-                        ? 'Score Only'
-                        : share.disclosureLevel === 'score_and_level'
-                        ? 'Score + Level'
-                        : 'Score + Factors';
+              {analysis && !aiLoading && (
+                <div className="space-y-6 text-xs">
+                  <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-2">
+                    <h4 className="font-bold text-indigo-300 uppercase tracking-wider text-[11px]">Executive Summary</h4>
+                    <p className="text-slate-200 text-sm leading-relaxed">{analysis.summary}</p>
+                  </div>
 
-                    return (
-                      <div
-                        key={share.id}
-                        className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all ${
-                          isShareActive
-                            ? 'bg-white/[0.02] border-white/10 hover:border-white/20'
-                            : 'bg-slate-900/30 border-slate-800/60 opacity-70'
-                        }`}
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-slate-200 px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                              {levelLabel}
-                            </span>
-                            <span className="font-mono text-slate-400 text-[11px]">
-                              Token: {share.shareToken.substring(0, 16)}...
-                            </span>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="p-5 rounded-2xl bg-black/20 border border-emerald-500/20 space-y-3">
+                      <h4 className="font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Verified Strengths
+                      </h4>
+                      <ul className="space-y-2 text-slate-300">
+                        {analysis.strengths.map((str, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span>{str}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
 
-                            {isShareActive && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                Active
-                              </span>
-                            )}
-                            {isShareRevoked && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                                Revoked
-                              </span>
-                            )}
-                            {isShareExpired && !isShareRevoked && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                Expired
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-3 text-slate-400 text-[11px]">
-                            <span>Created: {new Date(share.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                            <span>•</span>
-                            <span>Expires: {new Date(share.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <a
-                            href={`/verify/${share.shareToken}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 font-medium transition-colors flex items-center gap-1"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            View
-                          </a>
-
-                          {isShareActive && (
-                            <>
-                              <button
-                                onClick={() => handleCopyShareLink(share.shareToken)}
-                                className="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-200 font-medium transition-colors flex items-center gap-1"
-                              >
-                                {copiedShareToken === share.shareToken ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                    Copied!
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3.5 h-3.5" />
-                                    Copy Link
-                                  </>
-                                )}
-                              </button>
-
-                              <button
-                                onClick={() => handleRevokeShare(share.shareToken)}
-                                className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-medium transition-colors flex items-center gap-1"
-                              >
-                                <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                                Revoke
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                    <div className="p-5 rounded-2xl bg-black/20 border border-amber-500/20 space-y-3">
+                      <h4 className="font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4" />
+                        Areas to Monitor
+                      </h4>
+                      <ul className="space-y-2 text-slate-300">
+                        {analysis.concerns.map((con, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-amber-400 font-bold">△</span>
+                            <span>{con}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -1011,7 +903,531 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
         </div>
       )}
 
-      {/* SHARE LINK CREATION MODAL (Section 8) */}
+      {/* ========================================================================= */}
+      {/* TAB 3: VERIFY COMPANY (Sections 6 & 7)                                   */}
+      {/* ========================================================================= */}
+      {activeTab === 'verify' && (
+        <div className="space-y-8 max-w-3xl mx-auto">
+          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
+            <div className="border-b border-white/10 pb-4">
+              <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
+                <ShieldCheck className="w-6 h-6 text-indigo-400" />
+                Verify a Company
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Review a company's verified FRL reputation information before doing business.
+              </p>
+            </div>
+
+            {/* Verification Search Bar */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                Enter FRL Verification Link or ID
+              </label>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="text"
+                  value={verifyInput}
+                  onChange={(e) => setVerifyInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleVerifyCompanyLookup()}
+                  placeholder="Paste verification URL or ID (e.g. proof_... or share_...)"
+                  className="flex-1 px-4 py-3 bg-black/40 border border-white/15 rounded-xl text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                />
+
+                <button
+                  onClick={() => handleVerifyCompanyLookup()}
+                  disabled={verifyingCompany || !verifyInput.trim()}
+                  className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 shrink-0"
+                >
+                  {verifyingCompany ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  Verify Company
+                </button>
+              </div>
+
+              {/* Sample Quick Testing Links */}
+              <div className="flex items-center gap-2 pt-2 text-[11px] text-slate-400 flex-wrap">
+                <span>Try sample links:</span>
+                {proofs[0] && (
+                  <button
+                    onClick={() => {
+                      setVerifyInput(proofs[0].id);
+                      handleVerifyCompanyLookup(proofs[0].id);
+                    }}
+                    className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-indigo-300 font-mono"
+                  >
+                    {proofs[0].id.substring(0, 16)}...
+                  </button>
+                )}
+                {shares[0] && (
+                  <button
+                    onClick={() => {
+                      setVerifyInput(shares[0].shareToken);
+                      handleVerifyCompanyLookup(shares[0].shareToken);
+                    }}
+                    className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-indigo-300 font-mono"
+                  >
+                    {shares[0].shareToken.substring(0, 16)}...
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {verificationError && (
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{verificationError}</span>
+              </div>
+            )}
+
+            {/* SECTION 7: COMPANY VERIFICATION RESULT PAGE */}
+            {verificationResult && (
+              <div className="p-8 rounded-3xl bg-black/40 border border-white/15 space-y-6 text-center shadow-2xl">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-extrabold uppercase tracking-widest">
+                  <CheckCircle2 className="w-4 h-4" />
+                  ✓ Verified by FRL
+                </div>
+
+                <h3 className="text-2xl font-black text-slate-100">
+                  Business Reputation
+                </h3>
+
+                <div className="py-4 border-y border-white/10 space-y-1">
+                  <div className="text-6xl font-black text-white tracking-tight">
+                    {verificationResult.reputation?.score || 'N/A'}
+                  </div>
+                  {verificationResult.reputation?.level && (
+                    <div className="text-lg font-bold text-indigo-400 uppercase tracking-wider">
+                      {verificationResult.reputation.level}
+                    </div>
+                  )}
+                </div>
+
+                {/* 4 Major Reputation Dimensions Breakdown */}
+                <div className="space-y-3 text-left pt-2">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-center mb-4">
+                    Verified Reputation Dimensions
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                      <span className="text-slate-400 font-medium">Payment Reliability</span>
+                      <strong className="text-slate-100 font-bold text-sm mt-1">
+                        {verificationResult.reputation?.factors?.paymentReliability || b2bDimensions.paymentReliability}
+                      </strong>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                      <span className="text-slate-400 font-medium">Business Reliability</span>
+                      <strong className="text-slate-100 font-bold text-sm mt-1">
+                        {verificationResult.reputation?.factors?.transactionHistory || b2bDimensions.businessReliability}
+                      </strong>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                      <span className="text-slate-400 font-medium">Financial Stability</span>
+                      <strong className="text-slate-100 font-bold text-sm mt-1">
+                        {verificationResult.reputation?.factors?.incomeConsistency || b2bDimensions.financialStability}
+                      </strong>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                      <span className="text-slate-400 font-medium">Transaction History</span>
+                      <strong className="text-slate-100 font-bold text-sm mt-1">
+                        {verificationResult.reputation?.factors?.transactionHistory || b2bDimensions.transactionHistory}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metadata Dates */}
+                <div className="grid grid-cols-2 gap-3 text-xs py-3 px-4 rounded-xl bg-black/30 border border-white/5">
+                  <div>
+                    <span className="block text-slate-500 text-[10px] uppercase">Verified Date</span>
+                    <strong className="text-slate-200">{new Date(verificationResult.verifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-[10px] uppercase">Expiration Date</span>
+                    <strong className="text-slate-200">{new Date(verificationResult.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
+                  </div>
+                </div>
+
+                {/* Official Non-Sensational Explanation (Section 7) */}
+                <p className="text-xs text-slate-400 leading-relaxed pt-3 border-t border-white/10 italic">
+                  "FRL verifies the reputation information shown here. This information is intended to support business decisions and does not guarantee future business performance."
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 4: PROOFS & SELECTIVE DISCLOSURE SHARES (Sections 11 & 12)             */}
+      {/* ========================================================================= */}
+      {activeTab === 'proofs' && (
+        <div className="space-y-8">
+          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-100">My Reputation Proofs</h2>
+                {/* Section 12 Required Wording */}
+                <p className="text-xs text-slate-400 mt-1 max-w-xl">
+                  Create a verified snapshot of your current Business Reputation that you can share with another company.
+                </p>
+              </div>
+
+              {/* Primary Action Button (Section 12) */}
+              <button
+                onClick={handleGenerateProof}
+                disabled={generatingProof || (!isDemo && !realHasData)}
+                className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-600/30 flex items-center gap-2 shrink-0"
+              >
+                {generatingProof ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                Create Reputation Proof
+              </button>
+            </div>
+
+            {proofError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+                {proofError}
+              </div>
+            )}
+
+            {/* Active Proofs Section */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Active Reputation Proofs
+              </h3>
+
+              {proofsLoading ? (
+                <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Loading proofs...
+                </div>
+              ) : proofs.filter(p => p.status === 'active').length === 0 ? (
+                <div className="p-8 rounded-2xl border border-dashed border-slate-800 bg-black/20 text-center text-slate-400 text-xs">
+                  You haven't created an active Reputation Proof yet. Click "Create Reputation Proof" above to generate a verified snapshot for business sharing.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {proofs.filter(p => p.status === 'active').map((proof) => (
+                    <div
+                      key={proof.id}
+                      className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-bold text-slate-200">
+                            Proof #{proof.id.substring(6, 14)}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            Active
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-xs text-slate-400 pt-1">
+                          <strong className="text-white font-extrabold text-sm">{proof.score} {proof.level}</strong>
+                          <span>•</span>
+                          <span>Expires: {new Date(proof.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        <button
+                          onClick={() => {
+                            setSelectedProofForShare(proof);
+                            setShareModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          Create Share Link
+                        </button>
+
+                        <a
+                          href={`/verify/${proof.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-medium transition-colors flex items-center gap-1"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          View
+                        </a>
+
+                        <button
+                          onClick={() => handleCopyLink(proof.id)}
+                          className="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-200 text-xs font-medium transition-colors flex items-center gap-1"
+                        >
+                          {copiedProofId === proof.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          Copy Link
+                        </button>
+
+                        <button
+                          onClick={() => handleRevokeProof(proof.id)}
+                          className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium transition-colors flex items-center gap-1"
+                        >
+                          <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                          Revoke
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Controlled Reputation Disclosure Shares Section */}
+            <div className="space-y-4 pt-6 border-t border-white/10">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Share2 className="w-4 h-4 text-indigo-400" />
+                Controlled Selective Disclosure Links
+              </h3>
+
+              {sharesLoading ? (
+                <div className="p-4 text-center text-xs text-slate-500">Loading shares...</div>
+              ) : shares.length === 0 ? (
+                <div className="p-6 rounded-2xl border border-dashed border-slate-800 bg-black/20 text-center text-slate-400 text-xs">
+                  No selective disclosure links created yet. Click "Create Share Link" on any active proof to generate a custom disclosure link.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {shares.map((share) => (
+                    <div
+                      key={share.id}
+                      className="p-4 rounded-xl border border-white/10 bg-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-indigo-300 uppercase font-mono text-[11px] px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20">
+                            {share.disclosureLevel.replace('_', ' ')}
+                          </span>
+                          <span className="text-slate-400 font-mono text-[11px]">{share.shareToken.substring(0, 16)}...</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            {share.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          Expires: {new Date(share.expiresAt).toLocaleDateString()}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={`/verify/${share.shareToken}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 rounded-lg bg-white/5 text-slate-200 hover:bg-white/10 text-xs"
+                        >
+                          View
+                        </a>
+                        <button
+                          onClick={() => handleCopyLink(share.shareToken, true)}
+                          className="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-200 hover:bg-indigo-600/40 text-xs"
+                        >
+                          Copy
+                        </button>
+                        {share.status === 'active' && (
+                          <button
+                            onClick={() => handleRevokeShare(share.shareToken)}
+                            className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 text-xs"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Past Proofs Section (Section 11) */}
+            {proofs.filter(p => p.status !== 'active').length > 0 && (
+              <div className="space-y-4 pt-6 border-t border-white/10">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Past Proofs (Expired / Revoked)
+                </h3>
+
+                <div className="space-y-2 opacity-70">
+                  {proofs.filter(p => p.status !== 'active').map((proof) => (
+                    <div key={proof.id} className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-mono text-slate-400">Proof #{proof.id.substring(6, 14)}</span>
+                        <span className="ml-2 font-bold text-slate-300">{proof.score} {proof.level}</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 uppercase">
+                        {proof.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 5: REPUTATION DATA / FINANCIAL METRICS MANAGEMENT (Section 9)           */}
+      {/* ========================================================================= */}
+      {activeTab === 'reputation_data' && (
+        <div className="space-y-8 max-w-4xl mx-auto">
+          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-100">Manage Reputation Data</h2>
+                <p className="text-xs text-slate-400 mt-1 max-w-xl">
+                  This information is used by FRL to calculate your Business Reputation. Raw financial information is not exposed through public reputation verification.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 shrink-0"
+              >
+                <Edit3 className="w-4 h-4" />
+                Update Reputation Data
+              </button>
+            </div>
+
+            {/* Grouped Financial Sections (Section 9) */}
+            <div className="grid md:grid-cols-2 gap-6 text-xs">
+              {/* Group 1: Income & Stability */}
+              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
+                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  Income & Stability
+                </h3>
+                <div className="space-y-2 text-slate-300">
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>Monthly Income:</span>
+                    <strong className="text-slate-100">฿{monthlyInc.toLocaleString()}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>Stability Duration:</span>
+                    <strong className="text-slate-100">{activeFinancialData?.income?.stabilityMonths || 0} Months</strong>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span>Revenue Sources:</span>
+                    <strong className="text-slate-100">{activeFinancialData?.income?.sourcesCount || 1} Sources</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 2: Expenses & Spending */}
+              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
+                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                  <PieChart className="w-4 h-4 text-indigo-400" />
+                  Expenses & Spending
+                </h3>
+                <div className="space-y-2 text-slate-300">
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>Monthly Average Expenses:</span>
+                    <strong className="text-slate-100">฿{monthlyExp.toLocaleString()}</strong>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span>Expense Ratio:</span>
+                    <strong className="text-indigo-400">{expenseRatio}%</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 3: Payments */}
+              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
+                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  Payments & Obligations
+                </h3>
+                <div className="space-y-2 text-slate-300">
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>Total Payments Due:</span>
+                    <strong className="text-slate-100">{activeFinancialData?.payments?.totalDue || 0}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>On-time Count:</span>
+                    <strong className="text-emerald-400">{activeFinancialData?.payments?.onTimeCount || 0}</strong>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span>Late / Missed:</span>
+                    <strong className="text-amber-400">
+                      {(activeFinancialData?.payments?.lateCount || 0) + (activeFinancialData?.payments?.missedCount || 0)}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 4: Savings */}
+              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
+                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-emerald-400" />
+                  Savings & Reserves
+                </h3>
+                <div className="space-y-2 text-slate-300">
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>Total Liquid Balance:</span>
+                    <strong className="text-emerald-400">฿{totalSav.toLocaleString()}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>Monthly Contribution:</span>
+                    <strong className="text-slate-100">฿{monthlySav.toLocaleString()}</strong>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span>Savings Rate:</span>
+                    <strong className="text-emerald-400">{savingsRate}%</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 5: Debt */}
+              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
+                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  Debt Liabilities
+                </h3>
+                <div className="space-y-2 text-slate-300">
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>Total Liabilities:</span>
+                    <strong className="text-amber-400">฿{totalDebt.toLocaleString()}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>Monthly Debt Service:</span>
+                    <strong className="text-slate-100">฿{monthlyDebtService.toLocaleString()}</strong>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span>DTI Ratio:</span>
+                    <strong className="text-amber-400">{dtiRatio}%</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 6: Transaction History */}
+              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
+                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-indigo-400" />
+                  Transaction History
+                </h3>
+                <div className="space-y-2 text-slate-300">
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>6-Month Transactions:</span>
+                    <strong className="text-slate-100">{activeFinancialData?.transactions?.count6Months || 0}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-white/5">
+                    <span>Account Duration:</span>
+                    <strong className="text-slate-100">{activeFinancialData?.transactions?.oldestAccountYears || 0} Years</strong>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span>Bounced Checks:</span>
+                    <strong className="text-rose-400">{activeFinancialData?.transactions?.bouncedCount || 0}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SHARE LINK CREATION MODAL */}
       {shareModalOpen && selectedProofForShare && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="w-full max-w-md p-6 rounded-3xl bg-slate-900 border border-white/15 shadow-2xl space-y-6 text-left">
@@ -1020,12 +1436,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
                 <Share2 className="w-5 h-5 text-indigo-400" />
                 <h3 className="text-lg font-bold text-slate-100">Create Controlled Share Link</h3>
               </div>
-              <button
-                onClick={() => setShareModalOpen(false)}
-                className="text-slate-400 hover:text-white text-sm"
-              >
-                ✕
-              </button>
+              <button onClick={() => setShareModalOpen(false)} className="text-slate-400 hover:text-white text-sm">✕</button>
             </div>
 
             <div className="space-y-2">
@@ -1036,70 +1447,27 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
               </div>
             </div>
 
-            {/* Select Disclosure Level */}
             <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                Select Disclosure Level
-              </label>
-
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">Select Disclosure Level</label>
               <div className="space-y-2 text-xs">
-                <label
-                  onClick={() => setSelectedDisclosureLevel('score_only')}
-                  className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
-                    selectedDisclosureLevel === 'score_only'
-                      ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50'
-                      : 'bg-black/30 border-white/10 text-slate-400 hover:border-white/20'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="disclosure"
-                    checked={selectedDisclosureLevel === 'score_only'}
-                    onChange={() => setSelectedDisclosureLevel('score_only')}
-                    className="mt-0.5 accent-indigo-500"
-                  />
+                <label onClick={() => setSelectedDisclosureLevel('score_only')} className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${selectedDisclosureLevel === 'score_only' ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50' : 'bg-black/30 border-white/10 text-slate-400'}`}>
+                  <input type="radio" name="disclosure" checked={selectedDisclosureLevel === 'score_only'} onChange={() => setSelectedDisclosureLevel('score_only')} className="mt-0.5 accent-indigo-500" />
                   <div>
                     <strong className="block text-slate-200 font-semibold mb-0.5">○ Score Only</strong>
                     <span className="text-slate-400 text-[11px]">Share only my reputation score.</span>
                   </div>
                 </label>
 
-                <label
-                  onClick={() => setSelectedDisclosureLevel('score_and_level')}
-                  className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
-                    selectedDisclosureLevel === 'score_and_level'
-                      ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50'
-                      : 'bg-black/30 border-white/10 text-slate-400 hover:border-white/20'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="disclosure"
-                    checked={selectedDisclosureLevel === 'score_and_level'}
-                    onChange={() => setSelectedDisclosureLevel('score_and_level')}
-                    className="mt-0.5 accent-indigo-500"
-                  />
+                <label onClick={() => setSelectedDisclosureLevel('score_and_level')} className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${selectedDisclosureLevel === 'score_and_level' ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50' : 'bg-black/30 border-white/10 text-slate-400'}`}>
+                  <input type="radio" name="disclosure" checked={selectedDisclosureLevel === 'score_and_level'} onChange={() => setSelectedDisclosureLevel('score_and_level')} className="mt-0.5 accent-indigo-500" />
                   <div>
                     <strong className="block text-slate-200 font-semibold mb-0.5">○ Score + Level</strong>
                     <span className="text-slate-400 text-[11px]">Share my score and reputation level.</span>
                   </div>
                 </label>
 
-                <label
-                  onClick={() => setSelectedDisclosureLevel('score_and_factors')}
-                  className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
-                    selectedDisclosureLevel === 'score_and_factors'
-                      ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50'
-                      : 'bg-black/30 border-white/10 text-slate-400 hover:border-white/20'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="disclosure"
-                    checked={selectedDisclosureLevel === 'score_and_factors'}
-                    onChange={() => setSelectedDisclosureLevel('score_and_factors')}
-                    className="mt-0.5 accent-indigo-500"
-                  />
+                <label onClick={() => setSelectedDisclosureLevel('score_and_factors')} className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${selectedDisclosureLevel === 'score_and_factors' ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50' : 'bg-black/30 border-white/10 text-slate-400'}`}>
+                  <input type="radio" name="disclosure" checked={selectedDisclosureLevel === 'score_and_factors'} onChange={() => setSelectedDisclosureLevel('score_and_factors')} className="mt-0.5 accent-indigo-500" />
                   <div>
                     <strong className="block text-slate-200 font-semibold mb-0.5">○ Score + Factors</strong>
                     <span className="text-slate-400 text-[11px]">Share my score, level, and qualitative reputation factors.</span>
@@ -1108,52 +1476,22 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
               </div>
             </div>
 
-            {/* Select Expiration */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                Link Expiration
-              </label>
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">Link Expiration</label>
               <div className="grid grid-cols-3 gap-2">
                 {[7, 30, 90].map((days) => (
-                  <button
-                    key={days}
-                    type="button"
-                    onClick={() => setSelectedExpiryDays(days)}
-                    className={`py-2 rounded-xl text-xs font-medium border transition-colors ${
-                      selectedExpiryDays === days
-                        ? 'bg-indigo-600 text-white border-indigo-500'
-                        : 'bg-black/30 border-white/10 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
+                  <button key={days} type="button" onClick={() => setSelectedExpiryDays(days)} className={`py-2 rounded-xl text-xs font-medium border transition-colors ${selectedExpiryDays === days ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-black/30 border-white/10 text-slate-400'}`}>
                     {days === 90 ? '90 days / Max' : `${days} days`}
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-slate-500">
-                Expiration is automatically capped at underlying proof expiration ({new Date(selectedProofForShare.expiresAt).toLocaleDateString()}).
-              </p>
             </div>
 
-            {shareError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
-                {shareError}
-              </div>
-            )}
+            {shareError && <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">{shareError}</div>}
 
             <div className="pt-2 flex items-center justify-end gap-3 border-t border-white/10">
-              <button
-                type="button"
-                onClick={() => setShareModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCreateShare}
-                disabled={creatingShare}
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5"
-              >
+              <button type="button" onClick={() => setShareModalOpen(false)} className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium">Cancel</button>
+              <button type="button" onClick={handleCreateShare} disabled={creatingShare} className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5">
                 {creatingShare ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
                 Create Share Link
               </button>

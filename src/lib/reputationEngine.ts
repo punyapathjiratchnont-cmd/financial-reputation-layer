@@ -14,6 +14,8 @@
  *   6. Transaction History    -> Track Record Axis
  */
 
+import { Claim } from './types';
+
 export type ReputationLevel = 'Low' | 'Fair' | 'Good' | 'Excellent';
 
 export interface UserFinancialData {
@@ -210,6 +212,64 @@ export function calculateTransactionHistory(transactions: UserFinancialData['tra
   score -= transactions.bouncedCount * 120;
 
   return clampScore(score);
+}
+
+/**
+ * Business Reliability Calculation Mapping:
+ * Business Reliability represents verified business-related evidence (e.g. counterparty attestations,
+ * trade agreement fulfillments, and official business claims).
+ * 
+ * Logic:
+ * - Inspects active claims with axis_ref === 'reliability' or 'track_record' and tier 'official' | 'counterparty_attested'.
+ * - If no verified counterparty attestations exist: returns null (Insufficient Data).
+ * - If verified claims exist: calculates score bounded between 300 and 850 based on evidence tier & claim status.
+ */
+export function calculateBusinessReliability(claims?: Claim[]): {
+  score: number | null;
+  label: string;
+  isSufficient: boolean;
+  explanation: string;
+} {
+  if (!claims || claims.length === 0) {
+    return {
+      score: null,
+      label: 'Insufficient Data',
+      isSufficient: false,
+      explanation: 'No verified counterparty attestations or business trade claims recorded.',
+    };
+  }
+
+  const activeClaims = claims.filter(
+    (c) => c.status === 'active' && (c.axis_ref === 'reliability' || c.axis_ref === 'track_record')
+  );
+
+  if (activeClaims.length === 0) {
+    return {
+      score: null,
+      label: 'Insufficient Data',
+      isSufficient: false,
+      explanation: 'No active verified counterparty claims found for business reliability.',
+    };
+  }
+
+  // Weight by evidence tier
+  let baseScore = 600;
+  activeClaims.forEach((c) => {
+    if (c.evidence_tier === 'official') baseScore += 120;
+    else if (c.evidence_tier === 'counterparty_attested') baseScore += 90;
+    else baseScore += 40;
+  });
+
+  const finalScore = clampScore(baseScore);
+  const level = getReputationLevel(finalScore);
+  const label = level === 'Excellent' ? 'Strong' : level === 'Good' ? 'Good' : 'Moderate';
+
+  return {
+    score: finalScore,
+    label,
+    isSufficient: true,
+    explanation: `Based on ${activeClaims.length} verified counterparty attestation(s) and business trade record(s).`,
+  };
 }
 
 // Main Engine Calculator

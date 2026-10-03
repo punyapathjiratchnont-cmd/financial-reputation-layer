@@ -1,12 +1,89 @@
 export type EvidenceTier = 'official' | 'counterparty_attested' | 'public_review';
 export type Axis = 'reliability' | 'stability' | 'resilience' | 'leverage' | 'track_record' | 'data_confidence';
 
+export interface DimensionDetail {
+  score: number | null; // 0-1000
+  label: string; // 'Strong' | 'Good' | 'Stable' | 'Moderate' | 'Insufficient Data'
+  explanation: string;
+  source?: string;
+  isSufficient: boolean;
+}
+
+export interface TrackRecordItem {
+  title: string;
+  description: string;
+  source: 'Public Source' | 'Company Provided' | 'Verified Record';
+}
+
+export interface BusinessRelationshipItem {
+  partner: string;
+  relationshipType: string;
+  source: 'Public Source' | 'Company Provided' | 'Verified Record';
+}
+
+export interface BusinessPerformanceItem {
+  metric: string;
+  value: string;
+  source: 'Public Source' | 'Company Provided' | 'Verified Record';
+}
+
+export interface HistoryEventItem {
+  year: string;
+  event: string;
+  source: string;
+}
+
+export interface VerifiedIssueItem {
+  title: string;
+  detail: string;
+  source: string;
+}
+
+export interface InformationGapItem {
+  title: string;
+  detail: string;
+}
+
+export interface AIAnalysisIssueItem {
+  title: string;
+  detail: string;
+}
+
 export interface Company {
   id: string;
   name: string;
   registration_no: string;
   industry: string;
   founded_date: string;
+  country?: string;
+  isClaimed?: boolean;
+  logo?: string;
+  overview?: string;
+  reputationScore?: number | null; // 0 - 1000 scale
+  reputationLevel?: string | null;
+  dimensions?: {
+    paymentReliability: DimensionDetail;
+    businessReliability: DimensionDetail;
+    financialStability: DimensionDetail;
+    transactionHistory: DimensionDetail;
+  };
+  quickSummary?: {
+    strengths: string[];
+    thingsToConsider: string[];
+    dataStatus: string;
+  };
+  trackRecord?: {
+    achievements: TrackRecordItem[];
+    relationships: BusinessRelationshipItem[];
+    performance: BusinessPerformanceItem[];
+  };
+  reputationHistory?: HistoryEventItem[];
+  scoreHistory?: { date: string; score: number }[];
+  currentIssues?: {
+    verifiedIssues: VerifiedIssueItem[];
+    informationGaps: InformationGapItem[];
+    aiAnalysis: AIAnalysisIssueItem[];
+  };
 }
 
 export interface AxisState {
