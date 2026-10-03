@@ -1,13 +1,173 @@
 import Link from 'next/link';
-import { ShieldCheck, CheckCircle2, Lock, AlertTriangle, XCircle, QrCode } from 'lucide-react';
-import { getDb, saveDb, getReputationProof } from '@/lib/db';
+import { ShieldCheck, CheckCircle2, Lock, AlertTriangle, XCircle, Eye } from 'lucide-react';
+import { getDb, saveDb, getReputationProof, getReputationShare } from '@/lib/db';
 import { EvidenceTier, Claim, VerificationLink } from '@/lib/types';
 
 export default async function VerifyPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const db = getDb();
 
-  // 1. Check if token matches a ReputationProof
+  // 1. Check if token matches a ReputationShare (Controlled Selective Disclosure)
+  const share = getReputationShare(token);
+  if (share) {
+    const proof = getReputationProof(share.proofId);
+    
+    // Evaluate Server-Side Expiration & Statuses
+    const isShareExpired = new Date(share.expiresAt) < new Date();
+    const isProofExpired = proof ? new Date(proof.expiresAt) < new Date() : true;
+    const isRevoked = share.status === 'revoked' || (proof && proof.status === 'revoked');
+    const isExpired = isShareExpired || isProofExpired || share.status === 'expired' || (proof && proof.status === 'expired');
+    const isActive = !isRevoked && !isExpired && proof && proof.status === 'active';
+
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-20">
+        <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/50 backdrop-blur-md">
+          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2">
+              <ShieldCheck className="w-6 h-6 text-indigo-400" />
+              <span className="font-semibold text-lg tracking-tight">FRL Verification Portal</span>
+            </Link>
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <Lock className="w-4 h-4 text-emerald-400" />
+              Selective Disclosure
+            </div>
+          </div>
+        </nav>
+
+        <main className="pt-28 max-w-xl mx-auto px-6">
+          <div className="p-8 rounded-3xl bg-white/[0.03] border border-white/10 backdrop-blur-xl shadow-2xl space-y-6 text-center">
+            {/* Header Banner */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold tracking-wide uppercase">
+              <Eye className="w-4 h-4 text-indigo-400" />
+              Controlled Reputation Disclosure
+            </div>
+
+            <h1 className="text-2xl font-extrabold text-slate-100">
+              Financial Reputation
+            </h1>
+
+            {/* Status Banners */}
+            {isRevoked && (
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm space-y-1">
+                <div className="font-bold flex items-center justify-center gap-2">
+                  <XCircle className="w-5 h-5 text-rose-400" />
+                  REVOKED DISCLOSURE
+                </div>
+                <p>This controlled reputation link has been revoked by its owner.</p>
+              </div>
+            )}
+
+            {isExpired && !isRevoked && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm space-y-1">
+                <div className="font-bold flex items-center justify-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-400" />
+                  EXPIRED DISCLOSURE
+                </div>
+                <p>This controlled reputation link has expired.</p>
+              </div>
+            )}
+
+            {isActive && (
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold tracking-widest uppercase">
+                <CheckCircle2 className="w-4 h-4" />
+                ✓ VERIFIED DISCLOSURE
+              </div>
+            )}
+
+            {/* Content Based on Disclosure Level */}
+            {isActive && proof && (
+              <div className="space-y-6 pt-2">
+                {/* Score Only Level */}
+                <div className="py-4 border-y border-white/10 space-y-2">
+                  <span className="text-xs font-mono uppercase text-slate-400">Score</span>
+                  <div className="text-6xl font-black text-white tracking-tight">
+                    {proof.score}
+                  </div>
+
+                  {/* Score + Level or Score + Factors */}
+                  {(share.disclosureLevel === 'score_and_level' || share.disclosureLevel === 'score_and_factors') && (
+                    <div className="text-lg font-bold text-indigo-400 tracking-wider uppercase pt-1">
+                      {proof.level}
+                    </div>
+                  )}
+                </div>
+
+                {/* Score + Factors Grid */}
+                {share.disclosureLevel === 'score_and_factors' && (
+                  <div className="space-y-3 text-left pt-2">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-center mb-4">
+                      Qualitative Reputation Factors
+                    </h3>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                        <span className="text-slate-400 text-xs font-medium">Payment Reliability</span>
+                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.paymentReliability}</span>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                        <span className="text-slate-400 text-xs font-medium">Income Consistency</span>
+                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.incomeConsistency}</span>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                        <span className="text-slate-400 text-xs font-medium">Spending Stability</span>
+                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.spendingStability}</span>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                        <span className="text-slate-400 text-xs font-medium">Saving Behavior</span>
+                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.savingBehavior}</span>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                        <span className="text-slate-400 text-xs font-medium">Debt Behavior</span>
+                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.debtBehavior}</span>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                        <span className="text-slate-400 text-xs font-medium">Transaction History</span>
+                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.transactionHistory}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Verification Metadata & Privacy Footer */}
+            <div className="pt-6 border-t border-white/10 space-y-4 text-xs text-slate-400">
+              <div className="flex items-center justify-center gap-2 text-emerald-400 font-medium">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>✓ Verified Selective Disclosure</span>
+              </div>
+
+              {proof && (
+                <div className="grid grid-cols-2 gap-2 text-center py-2.5 px-4 rounded-xl bg-black/30 border border-white/5">
+                  <div>
+                    <span className="block text-slate-500 text-[10px] uppercase">Verified Date</span>
+                    <span className="text-slate-200 font-semibold">{new Date(proof.verifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 text-[10px] uppercase">Expiration Date</span>
+                    <span className="text-slate-200 font-semibold">{new Date(share.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Required Privacy Disclaimers */}
+              <div className="space-y-1.5 text-slate-400 text-[11px] leading-relaxed pt-3 border-t border-white/5">
+                <p className="text-slate-300">This information was selectively shared by the reputation owner.</p>
+                <p className="text-indigo-300 font-medium">No raw financial information is exposed.</p>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // 2. Check if token matches a ReputationProof (Full Public Reputation Proof)
   const proof = getReputationProof(token);
 
   if (proof) {
@@ -160,7 +320,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
     );
   }
 
-  // 2. Check for Claims Verification Link
+  // 3. Check for Claims Verification Link
   const link = db.links.find((l: VerificationLink) => l.token === token);
   
   if (link) {

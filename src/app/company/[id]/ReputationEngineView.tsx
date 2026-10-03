@@ -28,10 +28,11 @@ import {
 import { calculateReputation, ReputationResult, ReputationLevel, UserFinancialData } from '@/lib/reputationEngine';
 import { MOCK_FINANCIAL_PROFILES } from '@/lib/mockFinancialData';
 import { AIAnalysisResult } from '@/lib/aiAnalysisService';
-import { ScoreHistoryItem, ReputationProof } from '@/lib/types';
+import { ScoreHistoryItem, ReputationProof, ReputationShare, DisclosureLevel } from '@/lib/types';
 import { ScoreHistoryChart } from './ScoreHistoryChart';
 import { FinancialInputModal } from './FinancialInputModal';
 import { useLanguage } from '@/lib/i18n';
+
 
 
 interface ReputationEngineViewProps {
@@ -67,6 +68,90 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
   const [copiedProofId, setCopiedProofId] = useState<string | null>(null);
   const [proofError, setProofError] = useState<string | null>(null);
 
+  // Phase 6: Controlled Reputation Share State
+  const [shares, setShares] = useState<ReputationShare[]>([]);
+  const [sharesLoading, setSharesLoading] = useState<boolean>(false);
+  const [shareModalOpen, setShareModalOpen] = useState<boolean>(false);
+  const [selectedProofForShare, setSelectedProofForShare] = useState<ReputationProof | null>(null);
+  const [selectedDisclosureLevel, setSelectedDisclosureLevel] = useState<DisclosureLevel>('score_only');
+  const [selectedExpiryDays, setSelectedExpiryDays] = useState<number>(30);
+  const [creatingShare, setCreatingShare] = useState<boolean>(false);
+  const [copiedShareToken, setCopiedShareToken] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+
+  // Fetch Shares
+  const fetchShares = useCallback(async () => {
+    setSharesLoading(true);
+    try {
+      const res = await fetch(`/api/reputation/share?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setShares(data.shares || []);
+      }
+    } catch (err) {
+      console.error('Failed to load reputation shares:', err);
+    } finally {
+      setSharesLoading(false);
+    }
+  }, [userId]);
+
+  // Create Share Link Handler
+  const handleCreateShare = async () => {
+    if (!selectedProofForShare) return;
+    setCreatingShare(true);
+    setShareError(null);
+    try {
+      const res = await fetch('/api/reputation/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proofId: selectedProofForShare.id,
+          disclosureLevel: selectedDisclosureLevel,
+          expiresInDays: selectedExpiryDays,
+          userId,
+        }),
+      });
+
+      if (res.ok) {
+        await fetchShares();
+        setShareModalOpen(false);
+        setSelectedProofForShare(null);
+      } else {
+        const data = await res.json();
+        setShareError(data.error || 'Failed to create share link.');
+      }
+    } catch (err) {
+      setShareError('Network error creating share link.');
+    } finally {
+      setCreatingShare(false);
+    }
+  };
+
+  // Revoke Share Handler
+  const handleRevokeShare = async (shareToken: string) => {
+    try {
+      const res = await fetch('/api/reputation/share/revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareToken, userId }),
+      });
+
+      if (res.ok) {
+        await fetchShares();
+      }
+    } catch (err) {
+      console.error('Failed to revoke share:', err);
+    }
+  };
+
+  // Copy Share Link
+  const handleCopyShareLink = (shareToken: string) => {
+    const url = `${window.location.origin}/verify/${shareToken}`;
+    navigator.clipboard.writeText(url);
+    setCopiedShareToken(shareToken);
+    setTimeout(() => setCopiedShareToken(null), 2500);
+  };
+
   // Fetch Proofs
   const fetchProofs = useCallback(async () => {
     setProofsLoading(true);
@@ -82,6 +167,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
       setProofsLoading(false);
     }
   }, [userId]);
+
 
   // Generate Proof Handler
   const handleGenerateProof = async () => {
@@ -159,7 +245,9 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
   useEffect(() => {
     fetchRealData();
     fetchProofs();
-  }, [fetchRealData, fetchProofs]);
+    fetchShares();
+  }, [fetchRealData, fetchProofs, fetchShares]);
+
 
 
   // Compute active data based on mode
@@ -749,6 +837,17 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
                             {isActive && (
                               <>
                                 <button
+                                  onClick={() => {
+                                    setSelectedProofForShare(proof);
+                                    setShareModalOpen(true);
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors flex items-center gap-1 shadow-sm"
+                                >
+                                  <Share2 className="w-3.5 h-3.5" />
+                                  Create Share Link
+                                </button>
+
+                                <button
                                   onClick={() => handleCopyLink(proof.id)}
                                   className="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-200 text-xs font-medium transition-colors flex items-center gap-1"
                                 >
@@ -781,6 +880,283 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
                   })}
                 </div>
               )}
+            </div>
+
+            {/* PHASE 6: CONTROLLED REPUTATION SHARES MANAGEMENT */}
+            <div className="space-y-4 pt-6 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                    <Share2 className="w-4 h-4 text-indigo-400" />
+                    Controlled Reputation Shares
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    Selective disclosure links created from your active Reputation Proofs.
+                  </p>
+                </div>
+              </div>
+
+              {sharesLoading ? (
+                <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Loading selective disclosure links...
+                </div>
+              ) : shares.length === 0 ? (
+                <div className="p-6 rounded-2xl border border-dashed border-slate-800 bg-black/20 text-center text-slate-400 text-xs">
+                  No selective disclosure links created yet. Click "Create Share Link" on any active proof above to generate a custom disclosure link.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {shares.map((share) => {
+                    const isShareExpired = share.status === 'expired' || new Date(share.expiresAt) < new Date();
+                    const isShareRevoked = share.status === 'revoked';
+                    const isShareActive = share.status === 'active' && !isShareExpired;
+
+                    const levelLabel =
+                      share.disclosureLevel === 'score_only'
+                        ? 'Score Only'
+                        : share.disclosureLevel === 'score_and_level'
+                        ? 'Score + Level'
+                        : 'Score + Factors';
+
+                    return (
+                      <div
+                        key={share.id}
+                        className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all ${
+                          isShareActive
+                            ? 'bg-white/[0.02] border-white/10 hover:border-white/20'
+                            : 'bg-slate-900/30 border-slate-800/60 opacity-70'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-slate-200 px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                              {levelLabel}
+                            </span>
+                            <span className="font-mono text-slate-400 text-[11px]">
+                              Token: {share.shareToken.substring(0, 16)}...
+                            </span>
+
+                            {isShareActive && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                Active
+                              </span>
+                            )}
+                            {isShareRevoked && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                Revoked
+                              </span>
+                            )}
+                            {isShareExpired && !isShareRevoked && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                Expired
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-3 text-slate-400 text-[11px]">
+                            <span>Created: {new Date(share.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                            <span>•</span>
+                            <span>Expires: {new Date(share.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <a
+                            href={`/verify/${share.shareToken}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 font-medium transition-colors flex items-center gap-1"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            View
+                          </a>
+
+                          {isShareActive && (
+                            <>
+                              <button
+                                onClick={() => handleCopyShareLink(share.shareToken)}
+                                className="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-200 font-medium transition-colors flex items-center gap-1"
+                              >
+                                {copiedShareToken === share.shareToken ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                    Copied!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5" />
+                                    Copy Link
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                onClick={() => handleRevokeShare(share.shareToken)}
+                                className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-medium transition-colors flex items-center gap-1"
+                              >
+                                <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                                Revoke
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SHARE LINK CREATION MODAL (Section 8) */}
+      {shareModalOpen && selectedProofForShare && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-md p-6 rounded-3xl bg-slate-900 border border-white/15 shadow-2xl space-y-6 text-left">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-lg font-bold text-slate-100">Create Controlled Share Link</h3>
+              </div>
+              <button
+                onClick={() => setShareModalOpen(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs text-slate-400 font-medium">Selected Proof Baseline:</span>
+              <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between text-xs">
+                <span className="font-mono text-slate-200 font-bold">Proof #{selectedProofForShare.id.substring(6, 14)}</span>
+                <span className="text-indigo-400 font-bold">Score: {selectedProofForShare.score} ({selectedProofForShare.level})</span>
+              </div>
+            </div>
+
+            {/* Select Disclosure Level */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                Select Disclosure Level
+              </label>
+
+              <div className="space-y-2 text-xs">
+                <label
+                  onClick={() => setSelectedDisclosureLevel('score_only')}
+                  className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                    selectedDisclosureLevel === 'score_only'
+                      ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50'
+                      : 'bg-black/30 border-white/10 text-slate-400 hover:border-white/20'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="disclosure"
+                    checked={selectedDisclosureLevel === 'score_only'}
+                    onChange={() => setSelectedDisclosureLevel('score_only')}
+                    className="mt-0.5 accent-indigo-500"
+                  />
+                  <div>
+                    <strong className="block text-slate-200 font-semibold mb-0.5">○ Score Only</strong>
+                    <span className="text-slate-400 text-[11px]">Share only my reputation score.</span>
+                  </div>
+                </label>
+
+                <label
+                  onClick={() => setSelectedDisclosureLevel('score_and_level')}
+                  className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                    selectedDisclosureLevel === 'score_and_level'
+                      ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50'
+                      : 'bg-black/30 border-white/10 text-slate-400 hover:border-white/20'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="disclosure"
+                    checked={selectedDisclosureLevel === 'score_and_level'}
+                    onChange={() => setSelectedDisclosureLevel('score_and_level')}
+                    className="mt-0.5 accent-indigo-500"
+                  />
+                  <div>
+                    <strong className="block text-slate-200 font-semibold mb-0.5">○ Score + Level</strong>
+                    <span className="text-slate-400 text-[11px]">Share my score and reputation level.</span>
+                  </div>
+                </label>
+
+                <label
+                  onClick={() => setSelectedDisclosureLevel('score_and_factors')}
+                  className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                    selectedDisclosureLevel === 'score_and_factors'
+                      ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50'
+                      : 'bg-black/30 border-white/10 text-slate-400 hover:border-white/20'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="disclosure"
+                    checked={selectedDisclosureLevel === 'score_and_factors'}
+                    onChange={() => setSelectedDisclosureLevel('score_and_factors')}
+                    className="mt-0.5 accent-indigo-500"
+                  />
+                  <div>
+                    <strong className="block text-slate-200 font-semibold mb-0.5">○ Score + Factors</strong>
+                    <span className="text-slate-400 text-[11px]">Share my score, level, and qualitative reputation factors.</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Select Expiration */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                Link Expiration
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[7, 30, 90].map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => setSelectedExpiryDays(days)}
+                    className={`py-2 rounded-xl text-xs font-medium border transition-colors ${
+                      selectedExpiryDays === days
+                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        : 'bg-black/30 border-white/10 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {days === 90 ? '90 days / Max' : `${days} days`}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-500">
+                Expiration is automatically capped at underlying proof expiration ({new Date(selectedProofForShare.expiresAt).toLocaleDateString()}).
+              </p>
+            </div>
+
+            {shareError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+                {shareError}
+              </div>
+            )}
+
+            <div className="pt-2 flex items-center justify-end gap-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setShareModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateShare}
+                disabled={creatingShare}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5"
+              >
+                {creatingShare ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
+                Create Share Link
+              </button>
             </div>
           </div>
         </div>

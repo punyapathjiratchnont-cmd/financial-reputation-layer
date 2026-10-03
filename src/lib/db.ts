@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { Company, Claim, AxisState, VerificationLink, PublicReview, UserFinancialRecord, ScoreHistoryItem, ReputationProof } from './types';
+import { Company, Claim, AxisState, VerificationLink, PublicReview, UserFinancialRecord, ScoreHistoryItem, ReputationProof, ReputationShare } from './types';
+
 
 
 // Mock initial data
@@ -220,6 +221,63 @@ export function revokeReputationProof(id: string, ownerUserId: string): boolean 
   saveDb(db);
   return true;
 }
+
+// Phase 6: Controlled Reputation Share DB Operations
+export function createReputationShare(share: ReputationShare): ReputationShare {
+  const db = getDb();
+  if (!db.reputationShares) db.reputationShares = [];
+  db.reputationShares.push(share);
+  saveDb(db);
+  return share;
+}
+
+export function getReputationShare(shareToken: string): ReputationShare | null {
+  const db = getDb();
+  const shares: ReputationShare[] = db.reputationShares || [];
+  const share = shares.find((s) => s.shareToken === shareToken);
+  if (!share) return null;
+
+  // Auto-expire check
+  if (share.status === 'active' && new Date(share.expiresAt) < new Date()) {
+    share.status = 'expired';
+    saveDb(db);
+  }
+
+  return share;
+}
+
+export function getUserReputationShares(ownerUserId: string): ReputationShare[] {
+  const db = getDb();
+  const shares: ReputationShare[] = db.reputationShares || [];
+  let updated = false;
+
+  const userShares = shares.filter((s) => s.ownerUserId === ownerUserId);
+  userShares.forEach((s) => {
+    if (s.status === 'active' && new Date(s.expiresAt) < new Date()) {
+      s.status = 'expired';
+      updated = true;
+    }
+  });
+
+  if (updated) {
+    saveDb(db);
+  }
+
+  return userShares.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export function revokeReputationShare(shareToken: string, ownerUserId: string): boolean {
+  const db = getDb();
+  const shares: ReputationShare[] = db.reputationShares || [];
+  const share = shares.find((s) => s.shareToken === shareToken && s.ownerUserId === ownerUserId);
+
+  if (!share) return false;
+
+  share.status = 'revoked';
+  saveDb(db);
+  return true;
+}
+
 
 
 

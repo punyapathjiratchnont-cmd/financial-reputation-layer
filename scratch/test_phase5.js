@@ -101,14 +101,15 @@ async function runTests() {
   }, {
     userId: 'c1',
     financialData: {
-      income: { monthly: 150000, stabilityMonths: 48, sourcesCount: 3 },
-      expenses: { monthlyAvg: 30000, discretionaryRatio: 0.1 },
-      payments: { totalDue: 50, onTimeCount: 50, lateCount: 0, missedCount: 0 },
-      savings: { currentBalance: 900000, monthlyContribution: 50000, emergencyFundMonths: 12 },
-      debts: { totalDebt: 50000, creditLimit: 600000, utilizationRatio: 0.08, monthlyDebtService: 5000 },
-      transactions: { count6Months: 400, bouncedCount: 0, oldestAccountYears: 10 }
+      income: { monthly: 30000, stabilityMonths: 6, sourcesCount: 1 },
+      expenses: { monthlyAvg: 28000, discretionaryRatio: 0.6 },
+      payments: { totalDue: 10, onTimeCount: 7, lateCount: 2, missedCount: 1 },
+      savings: { currentBalance: 10000, monthlyContribution: 1000, emergencyFundMonths: 0.3 },
+      debts: { totalDebt: 120000, creditLimit: 150000, utilizationRatio: 0.8, monthlyDebtService: 15000 },
+      transactions: { count6Months: 30, bouncedCount: 2, oldestAccountYears: 1 }
     }
   });
+
 
   // Verify proof 1 remains identical (snapshot isolation)
   const verifyResAfter = await makeRequest({

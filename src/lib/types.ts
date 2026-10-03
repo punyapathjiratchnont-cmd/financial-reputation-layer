@@ -120,6 +120,20 @@ export interface ReputationProof {
   createdAt: string;
 }
 
+export type DisclosureLevel = 'score_only' | 'score_and_level' | 'score_and_factors';
+
+export interface ReputationShare {
+  id: string;
+  ownerUserId: string;
+  proofId: string;
+  shareToken: string;
+  disclosureLevel: DisclosureLevel;
+  createdAt: string;
+  expiresAt: string;
+  status: 'active' | 'revoked' | 'expired';
+}
+
+
 
 
 
