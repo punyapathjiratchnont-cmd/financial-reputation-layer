@@ -1,18 +1,66 @@
 'use client';
 
-import { useState } from 'react';
-import { ShieldAlert, TrendingUp, CheckCircle2, ChevronRight, Activity, Sliders } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  TrendingUp,
+  ChevronRight,
+  Activity,
+  Sliders,
+  Sparkles,
+  CheckCircle2,
+  AlertTriangle,
+  HelpCircle,
+  RefreshCw,
+  Info,
+} from 'lucide-react';
 import { calculateReputation, ReputationResult, ReputationLevel } from '@/lib/reputationEngine';
 import { MOCK_FINANCIAL_PROFILES } from '@/lib/mockFinancialData';
+import { AIAnalysisResult } from '@/lib/aiAnalysisService';
 import { useLanguage } from '@/lib/i18n';
 
 export function ReputationEngineView() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [selectedProfileKey, setSelectedProfileKey] = useState<string>('normal');
+
+  // AI Analysis state
+  const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
+  const [aiLoading, setAiLoading] = useState<boolean>(true);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const currentProfile = MOCK_FINANCIAL_PROFILES[selectedProfileKey] || MOCK_FINANCIAL_PROFILES.normal;
   const result: ReputationResult = calculateReputation(currentProfile.data);
   const history = currentProfile.history;
+
+  const fetchAIAnalysis = useCallback(async (profileKey: string) => {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch('/api/reputation/analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileKey,
+          financialData: MOCK_FINANCIAL_PROFILES[profileKey]?.data,
+          history: MOCK_FINANCIAL_PROFILES[profileKey]?.history,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to fetch AI financial analysis.');
+      }
+
+      const data = await res.json();
+      setAnalysis(data.analysis);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Unable to generate analysis right now.');
+    } finally {
+      setAiLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAIAnalysis(selectedProfileKey);
+  }, [selectedProfileKey, fetchAIAnalysis]);
 
   const getLevelBadge = (level: ReputationLevel) => {
     switch (level) {
@@ -139,6 +187,151 @@ export function ReputationEngineView() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* AI FINANCIAL ANALYSIS LAYER */}
+      <div className="pt-6 border-t border-white/10 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-100">
+                {language === 'th' ? 'การวิเคราะห์การเงินด้วย AI (AI Financial Analysis)' : 'AI Financial Analysis'}
+              </h3>
+              <p className="text-xs text-slate-400">
+                {language === 'th'
+                  ? 'AI สรุปและอธิบายที่มาของคะแนนจาก Reputation Engine โดยไม่มีอำนาจแก้ไขคะแนน'
+                  : 'Analytical insight layer strictly summarizing engine factors without score modification power.'}
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] font-mono px-2 py-1 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 self-start md:self-auto">
+            AI Service Layer (Rule-Engine Abstraction)
+          </span>
+        </div>
+
+        {/* Loading State */}
+        {aiLoading && (
+          <div className="p-8 rounded-2xl bg-black/20 border border-white/5 text-center space-y-3">
+            <RefreshCw className="w-6 h-6 text-indigo-400 animate-spin mx-auto" />
+            <p className="text-xs text-slate-400">
+              {language === 'th' ? 'กำลังวิเคราะห์ข้อมูลทางการเงิน...' : 'Analyzing financial data...'}
+            </p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {aiError && !aiLoading && (
+          <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center space-y-3">
+            <AlertTriangle className="w-6 h-6 text-rose-400 mx-auto" />
+            <p className="text-sm font-medium text-rose-300">
+              {language === 'th' ? 'ไม่สามารถประมวลผลการวิเคราะห์ได้ในขณะนี้' : 'Unable to generate analysis right now.'}
+            </p>
+            <button
+              onClick={() => fetchAIAnalysis(selectedProfileKey)}
+              className="px-4 py-1.5 rounded-lg bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 text-xs font-medium transition-colors"
+            >
+              {language === 'th' ? 'ลองใหม่อีกครั้ง (Retry)' : 'Retry Analysis'}
+            </button>
+          </div>
+        )}
+
+        {/* Successful Analysis Output */}
+        {analysis && !aiLoading && !aiError && (
+          <div className="space-y-6">
+            {/* Executive Summary Box */}
+            <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-indigo-300">
+                <span className="flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-indigo-400" />
+                  {language === 'th' ? 'บทสรุปผู้บริหารโดย AI' : 'Executive Summary'}
+                </span>
+                <span className="font-mono text-[10px] text-indigo-400/80">Analyzed {new Date(analysis.analyzedAt).toLocaleTimeString()}</span>
+              </div>
+              <p className="text-sm text-slate-200 leading-relaxed">{analysis.summary}</p>
+            </div>
+
+            {/* Strengths & Concerns Grid */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Strengths */}
+              <div className="p-5 rounded-2xl bg-black/20 border border-emerald-500/20 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  {language === 'th' ? 'จุดแข็งที่สนับสนุนคะแนน (Strengths)' : 'Verified Strengths'}
+                </h4>
+                {analysis.strengths.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic">No specific strengths flagged for current baseline.</p>
+                ) : (
+                  <ul className="space-y-2 text-xs text-slate-300">
+                    {analysis.strengths.map((str, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                        <span>{str}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Areas to Monitor */}
+              <div className="p-5 rounded-2xl bg-black/20 border border-amber-500/20 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  {language === 'th' ? 'ปัจจัยที่ควรติดตาม (Areas to Monitor)' : 'Areas to Monitor'}
+                </h4>
+                {analysis.concerns.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic">No risk concerns detected.</p>
+                ) : (
+                  <ul className="space-y-2 text-xs text-slate-300">
+                    {analysis.concerns.map((con, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-amber-400 font-bold shrink-0">△</span>
+                        <span>{con}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            {/* Trend & Actionable Recommendations */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Trend Analysis */}
+              <div className="p-5 rounded-2xl bg-black/20 border border-white/5 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <TrendingUp className="w-4 h-4 text-indigo-400" />
+                  {language === 'th' ? 'การวิเคราะห์แนวโน้ม (Trend Analysis)' : 'Trend Analysis'}
+                </h4>
+                <ul className="space-y-2 text-xs text-slate-300">
+                  {analysis.trends.map((tr, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-indigo-400 font-bold shrink-0">↑</span>
+                      <span>{tr}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Actionable Recommendations */}
+              <div className="p-5 rounded-2xl bg-black/20 border border-white/5 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4 text-indigo-400" />
+                  {language === 'th' ? 'ข้อแนะนำเชิงสร้างสรรค์ (AI Recommendations)' : 'Non-Judgmental Guidance'}
+                </h4>
+                <ul className="space-y-2 text-xs text-slate-300">
+                  {analysis.recommendations.map((rec, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-slate-400 font-bold shrink-0">•</span>
+                      <span>{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
