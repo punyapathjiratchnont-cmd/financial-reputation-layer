@@ -14,6 +14,8 @@ import { getCompanyById } from '@/lib/realCompanyService';
 import { EvidenceTier, Claim, VerificationLink, FactorSummary } from '@/lib/types';
 import { Badge, Button, Container } from '@/components/ui';
 
+import { SealArt } from '@/components/home/Art';
+import { Tr } from '@/lib/i18n';
 /**
  * FRL verification portal — UI Phase 6.
  *
@@ -99,10 +101,9 @@ function PortalShell({
               <ShieldCheck className="h-4 w-4 text-primary-hover" aria-hidden="true" />
             </span>
             <span className="flex flex-col leading-none">
-              <span className="text-[0.9375rem] font-semibold tracking-tight text-white">FRL</span>
+              <span className="text-[0.9375rem] font-semibold tracking-tight text-white"><Tr s={"FRL"} /></span>
               <span className="mt-0.5 text-[0.5625rem] uppercase tracking-[0.14em] text-fg-subtle">
-                Verification
-              </span>
+                <Tr s={"Verification"} /></span>
             </span>
           </Link>
           <span className="flex min-w-0 items-center gap-2 text-caption text-fg-muted">
@@ -141,7 +142,10 @@ function Verdict({
           : 'Insufficient data';
 
   return (
-    <div className="text-center">
+    <div className="text-center" data-fx="scale">
+      <div className="mx-auto mb-5 h-28 w-28">
+        <SealArt tone={tone} />
+      </div>
       <Badge tone={badgeTone} size="md" dot className="mx-auto">
         {badgeText}
       </Badge>
@@ -180,33 +184,25 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
         <div className="space-y-6">
           {isRevoked ? (
             <Verdict tone="danger" title="Disclosure revoked">
-              The owner of this reputation revoked the link. It is no longer a valid disclosure, so
-              FRL shows no reputation data for it.
-            </Verdict>
+              <Tr s={"The owner of this reputation revoked the link. It is no longer a valid disclosure, so FRL shows no reputation data for it."} /></Verdict>
           ) : isExpired ? (
             <Verdict tone="warning" title="Disclosure expired">
-              This disclosure link has passed its expiry date. It is no longer valid, so FRL shows no
-              reputation data for it.
-            </Verdict>
+              <Tr s={"This disclosure link has passed its expiry date. It is no longer valid, so FRL shows no reputation data for it."} /></Verdict>
           ) : isActive ? (
             <Verdict tone="success" title="Controlled disclosure">
-              The reputation owner chose what to disclose from this link. FRL displays only what the
-              link is configured to release.
-            </Verdict>
+              <Tr s={"The reputation owner chose what to disclose from this link. FRL displays only what the link is configured to release."} /></Verdict>
           ) : (
             <Verdict tone="insufficient" title="Disclosure unavailable">
-              The proof behind this link is not active. FRL shows no reputation data for it.
-            </Verdict>
+              <Tr s={"The proof behind this link is not active. FRL shows no reputation data for it."} /></Verdict>
           )}
 
-          <div className="rounded-lg border border-white/10 bg-slate-900 p-5 shadow-[var(--shadow-surface)] sm:p-7">
+          <div data-fx="up" className="frl-panel frl-spot p-5 sm:p-7">
             {/* Identity. Reported as unknown when it cannot be resolved. */}
             <dl className="space-y-3 border-b border-white/[0.06] pb-5">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <dt className="flex items-center gap-2 text-caption text-fg-muted">
                   <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  Company
-                </dt>
+                  <Tr s={"Company"} /></dt>
                 <dd className="text-body-sm font-medium text-slate-100">
                   {isActive ? companyName ?? 'Not reported' : 'Not disclosed'}
                 </dd>
@@ -214,8 +210,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <dt className="flex items-center gap-2 text-caption text-fg-muted">
                   <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                  Disclosure level
-                </dt>
+                  <Tr s={"Disclosure level"} /></dt>
                 <dd className="text-body-sm font-medium text-slate-100">
                   {DISCLOSURE_LABEL[share.disclosureLevel] ?? share.disclosureLevel}
                 </dd>
@@ -225,7 +220,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
             {isActive && proof ? (
               <>
                 <div className="border-b border-white/[0.06] py-7 text-center">
-                  <span className="text-label text-fg-subtle">Disclosed reputation score</span>
+                  <span className="text-label text-fg-subtle"><Tr s={"Disclosed reputation score"} /></span>
                   <div className="mt-2 flex items-baseline justify-center gap-3">
                     <span className="text-metric text-white">{proof.score}</span>
                     <span className="text-body-sm text-fg-muted">/ 850</span>
@@ -241,34 +236,32 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
                 {share.disclosureLevel === 'score_and_factors' && (
                   <div className="py-6">
                     <h2 className="mb-4 text-center text-label text-fg-subtle">
-                      Disclosed reputation factors
-                    </h2>
+                      <Tr s={"Disclosed reputation factors"} /></h2>
                     <FactorGrid factors={proof.factorSummary} />
                   </div>
                 )}
               </>
             ) : (
               <p className="py-8 text-center text-body-sm text-fg-subtle">
-                No reputation score, level or factor result is shown for this link.
-              </p>
+                <Tr s={"No reputation score, level or factor result is shown for this link."} /></p>
             )}
 
             {proof && (
               <dl className="grid grid-cols-1 gap-3 border-t border-white/[0.06] pt-5 sm:grid-cols-3">
                 <div>
-                  <dt className="text-caption text-fg-subtle">Verified</dt>
+                  <dt className="text-caption text-fg-subtle"><Tr s={"Verified"} /></dt>
                   <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
                     {formatDate(proof.verifiedAt)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-caption text-fg-subtle">Link expires</dt>
+                  <dt className="text-caption text-fg-subtle"><Tr s={"Link expires"} /></dt>
                   <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
                     {formatDate(share.expiresAt)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-caption text-fg-subtle">Evidence policy</dt>
+                  <dt className="text-caption text-fg-subtle"><Tr s={"Evidence policy"} /></dt>
                   <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
                     {proof.policyVersion ?? 'Not reported'}
                   </dd>
@@ -278,9 +271,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
           </div>
 
           <p className="text-center text-caption leading-relaxed text-fg-subtle">
-            This information was selectively shared by the reputation owner. No raw financial
-            information is exposed through this link.
-          </p>
+            <Tr s={"This information was selectively shared by the reputation owner. No raw financial information is exposed through this link."} /></p>
         </div>
       </PortalShell>
     );
@@ -311,29 +302,27 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
                 : 'This reputation proof has passed its expiry date, so it is no longer a valid verification. FRL displays no score, level or factor result for it.'}
             </Verdict>
 
-            <dl className="space-y-3 rounded-lg border border-white/10 bg-slate-900 p-5 shadow-[var(--shadow-surface)]">
+            <dl data-fx="up" className="frl-panel frl-spot space-y-3 p-5">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <dt className="text-caption text-fg-muted">Company</dt>
+                <dt className="text-caption text-fg-muted"><Tr s={"Company"} /></dt>
                 <dd className="text-body-sm font-medium text-slate-100">{companyName ?? 'Not reported'}</dd>
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <dt className="text-caption text-fg-muted">Verified</dt>
+                <dt className="text-caption text-fg-muted"><Tr s={"Verified"} /></dt>
                 <dd className="text-body-sm font-medium text-slate-100">{formatDate(proof.verifiedAt)}</dd>
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <dt className="text-caption text-fg-muted">Expired</dt>
+                <dt className="text-caption text-fg-muted"><Tr s={"Expired"} /></dt>
                 <dd className="text-body-sm font-medium text-slate-100">{formatDate(proof.expiresAt)}</dd>
               </div>
             </dl>
 
             <p className="text-center text-caption leading-relaxed text-fg-subtle">
-              FRL only displays a score, a level and factor results for a proof that is active and was
-              produced under the current reputation evidence policy.
-            </p>
+              <Tr s={"FRL only displays a score, a level and factor results for a proof that is active and was produced under the current reputation evidence policy."} /></p>
 
             <div className="flex justify-center">
               <Link href="/search">
-                <Button variant="secondary">Back to company search</Button>
+                <Button variant="secondary"><Tr s={"Back to company search"} /></Button>
               </Link>
             </div>
           </div>
@@ -347,24 +336,20 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
       <PortalShell context="Reputation proof">
         <div className="space-y-6">
           <Verdict tone="success" title="Reputation proof">
-            This proof is active. FRL displays the reputation it recorded at the verification date
-            below, and nothing else.
-          </Verdict>
+            <Tr s={"This proof is active. FRL displays the reputation it recorded at the verification date below, and nothing else."} /></Verdict>
 
           <div className="rounded-lg border border-white/10 bg-slate-900 p-5 shadow-[var(--shadow-surface)] sm:p-7">
             <dl className="space-y-3 border-b border-white/[0.06] pb-5">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <dt className="flex items-center gap-2 text-caption text-fg-muted">
                   <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  Company
-                </dt>
+                  <Tr s={"Company"} /></dt>
                 <dd className="text-body-sm font-medium text-slate-100">{companyName ?? 'Not reported'}</dd>
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <dt className="flex items-center gap-2 text-caption text-fg-muted">
                   <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                  Proof reference
-                </dt>
+                  <Tr s={"Proof reference"} /></dt>
                 <dd className="font-mono text-body-sm text-slate-200">
                   {proof.id.replace(/^proof_/, '').slice(0, 12)}
                 </dd>
@@ -372,7 +357,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
             </dl>
 
             <div className="border-b border-white/[0.06] py-7 text-center">
-              <span className="text-label text-fg-subtle">Reputation score</span>
+              <span className="text-label text-fg-subtle"><Tr s={"Reputation score"} /></span>
               <div className="mt-2 flex items-baseline justify-center gap-3">
                 <span className="text-metric text-white">{proof.score}</span>
                 <span className="text-body-sm text-fg-muted">/ 850</span>
@@ -384,8 +369,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
 
             <div className="py-6">
               <h2 className="mb-4 text-center text-label text-fg-subtle">
-                Reputation factors
-              </h2>
+                <Tr s={"Reputation factors"} /></h2>
               <FactorGrid factors={proof.factorSummary} />
             </div>
 
@@ -393,8 +377,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
               <div>
                 <dt className="flex items-center gap-1.5 text-caption text-fg-subtle">
                   <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                  Verified
-                </dt>
+                  <Tr s={"Verified"} /></dt>
                 <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
                   {formatDate(proof.verifiedAt)}
                 </dd>
@@ -402,8 +385,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
               <div>
                 <dt className="flex items-center gap-1.5 text-caption text-fg-subtle">
                   <Clock className="h-3 w-3" aria-hidden="true" />
-                  Expires
-                </dt>
+                  <Tr s={"Expires"} /></dt>
                 <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
                   {formatDate(proof.expiresAt)}
                 </dd>
@@ -411,8 +393,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
               <div>
                 <dt className="flex items-center gap-1.5 text-caption text-fg-subtle">
                   <FileText className="h-3 w-3" aria-hidden="true" />
-                  Evidence policy
-                </dt>
+                  <Tr s={"Evidence policy"} /></dt>
                 <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
                   {proof.policyVersion ?? 'Not reported'}
                 </dd>
@@ -433,13 +414,11 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
                 loading="lazy"
               />
             </div>
-            <p className="text-caption text-fg-subtle">Scan to open this verification</p>
+            <p className="text-caption text-fg-subtle"><Tr s={"Scan to open this verification"} /></p>
           </div>
 
           <p className="text-center text-caption leading-relaxed text-fg-subtle">
-            Reputation is a snapshot taken on {formatDate(proof.verifiedAt)} and may change afterwards.
-            No raw financial information is exposed through this verification.
-          </p>
+            <Tr s={"Reputation is a snapshot taken on"} />{' '}{formatDate(proof.verifiedAt)} <Tr s={"and may change afterwards. No raw financial information is exposed through this verification."} /></p>
         </div>
       </PortalShell>
     );
@@ -479,12 +458,10 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
       <PortalShell context="Verification">
         <div className="space-y-6 py-6 text-center">
           <Verdict tone="danger" title="Invalid proof">
-            No FRL record matches this reference. FRL displays no reputation, score or claim for a
-            reference it cannot resolve.
-          </Verdict>
+            <Tr s={"No FRL record matches this reference. FRL displays no reputation, score or claim for a reference it cannot resolve."} /></Verdict>
           <div className="flex justify-center">
             <Link href="/search">
-              <Button variant="secondary">Back to company search</Button>
+              <Button variant="secondary"><Tr s={"Back to company search"} /></Button>
             </Link>
           </div>
         </div>
@@ -496,9 +473,8 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
     <PortalShell context="Claims disclosure">
       <div className="space-y-6">
         <Verdict tone="success" title="Claims disclosure">
-          The following statements were submitted to FRL and authorised by{' '}
-          <span className="text-slate-100">{company?.name || 'the company'}</span> for your review.
-        </Verdict>
+          <Tr s={"The following statements were submitted to FRL and authorised by"} />{' '}
+          <span className="text-slate-100">{company?.name || 'the company'}</span> <Tr s={"for your review."} /></Verdict>
 
         <div className="flex items-start gap-3 rounded-md border border-white/10 bg-white/[0.02] p-4">
           <AlertTriangle
@@ -506,10 +482,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
             aria-hidden="true"
           />
           <p className="text-body-sm leading-relaxed text-fg-muted">
-            This is a restricted disclosure and the access has been recorded in the FRL audit trail.
-            Raw financial data is never exposed. Each statement below carries the evidence tier it
-            was submitted with, so you can judge how it was established.
-          </p>
+            <Tr s={"This is a restricted disclosure and the access has been recorded in the FRL audit trail. Raw financial data is never exposed. Each statement below carries the evidence tier it was submitted with, so you can judge how it was established."} /></p>
         </div>
 
         <div className="space-y-4">
@@ -532,8 +505,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
                     </Badge>
                   </div>
                   <p className="mt-2 text-body-sm italic text-fg-subtle">
-                    This claim is no longer active and cannot be relied upon.
-                  </p>
+                    <Tr s={"This claim is no longer active and cannot be relied upon."} /></p>
                 </div>
               );
             }
@@ -548,13 +520,12 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
                     {claim.axis_ref}
                   </h2>
                   <Badge tone="success" size="sm" dot>
-                    Active claim
-                  </Badge>
+                    <Tr s={"Active claim"} /></Badge>
                 </div>
                 <p className="mt-2 text-h4 leading-snug text-slate-100">{claim.statement_text}</p>
                 <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/[0.06] pt-4">
                   <div className="flex items-center gap-2">
-                    <dt className="text-caption text-fg-subtle">Evidence tier</dt>
+                    <dt className="text-caption text-fg-subtle"><Tr s={"Evidence tier"} /></dt>
                     <dd>
                       <Badge tone={TIER_TONE[claim.evidence_tier]} size="sm">
                         {TIER_LABEL[claim.evidence_tier]}
@@ -562,7 +533,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
                     </dd>
                   </div>
                   <div className="flex items-center gap-2">
-                    <dt className="text-caption text-fg-subtle">Valid until</dt>
+                    <dt className="text-caption text-fg-subtle"><Tr s={"Valid until"} /></dt>
                     <dd className="text-caption text-slate-200">{formatDate(claim.expires_at)}</dd>
                   </div>
                 </dl>
@@ -572,9 +543,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
         </div>
 
         <p className="text-center text-caption leading-relaxed text-fg-subtle">
-          FRL records what a party submits and the tier it was submitted at. It does not audit the
-          underlying evidence and does not guarantee the outcome described in a claim.
-        </p>
+          <Tr s={"FRL records what a party submits and the tier it was submitted at. It does not audit the underlying evidence and does not guarantee the outcome described in a claim."} /></p>
       </div>
     </PortalShell>
   );

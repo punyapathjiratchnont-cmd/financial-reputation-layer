@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, Save, DollarSign, CreditCard, ShieldCheck, AlertTriangle, Clock, PieChart } from 'lucide-react';
 import { UserFinancialData } from '@/lib/reputationEngine';
 import { Button } from '@/components/ui';
+import { Tr } from '@/lib/i18n';
 
 interface FinancialInputModalProps {
   userId: string;
@@ -301,13 +302,9 @@ export function FinancialInputModal({
           <div className="min-w-0">
             <h2 className="flex items-center gap-2 text-h3 text-slate-100">
               <ShieldCheck className="h-5 w-5 text-primary-hover" aria-hidden="true" />
-              Financial evidence
-            </h2>
+              <Tr s={"Financial evidence"} /></h2>
             <p className="mt-1.5 text-body-sm leading-relaxed text-fg-muted">
-              These are values you declare. FRL records what you enter here; it has not verified any
-              of it against a bank or an accounting system, and the reputation score is produced by
-              the FRL engine from whatever evidence is present.
-            </p>
+              <Tr s={"These are values you declare. FRL records what you enter here; it has not verified any of it against a bank or an accounting system, and the reputation score is produced by the FRL engine from whatever evidence is present."} /></p>
           </div>
           <button
             type="button"
@@ -332,8 +329,7 @@ export function FinancialInputModal({
           <fieldset className="space-y-3">
             <legend className="flex items-center gap-1.5 text-label uppercase tracking-wider text-emerald-300">
               <DollarSign className="h-3.5 w-3.5" aria-hidden="true" />
-              Income &amp; Expenditure
-            </legend>
+              <Tr s={"Income & Expenditure"} /></legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 id="frl-income-monthly"
@@ -375,8 +371,7 @@ export function FinancialInputModal({
           <fieldset className="space-y-3">
             <legend className="flex items-center gap-1.5 text-label uppercase tracking-wider text-emerald-300">
               <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
-              Payment Reliability
-            </legend>
+              <Tr s={"Payment Reliability"} /></legend>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field
                 id="frl-payments-ontime"
@@ -402,8 +397,7 @@ export function FinancialInputModal({
           <fieldset className="space-y-3">
             <legend className="flex items-center gap-1.5 text-label uppercase tracking-wider text-amber-300">
               <PieChart className="h-3.5 w-3.5" aria-hidden="true" />
-              Savings &amp; Reserves
-            </legend>
+              <Tr s={"Savings & Reserves"} /></legend>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field
                 id="frl-savings-balance"
@@ -431,8 +425,7 @@ export function FinancialInputModal({
           <fieldset className="space-y-3">
             <legend className="flex items-center gap-1.5 text-label uppercase tracking-wider text-amber-300">
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-              Debt Liabilities
-            </legend>
+              <Tr s={"Debt Liabilities"} /></legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 id="frl-debts-total"
@@ -467,8 +460,7 @@ export function FinancialInputModal({
           <fieldset className="space-y-3">
             <legend className="flex items-center gap-1.5 text-label uppercase tracking-wider text-indigo-300">
               <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-              Transaction History
-            </legend>
+              <Tr s={"Transaction History"} /></legend>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field
                 id="frl-transactions-count"
@@ -493,17 +485,13 @@ export function FinancialInputModal({
           </fieldset>
 
           <p className="text-caption leading-relaxed text-fg-subtle">
-            FRL will only produce a score once every required factor has evidence. A factor you
-            cannot evidence is left unscored rather than assumed.
-          </p>
+            <Tr s={"FRL will only produce a score once every required factor has evidence. A factor you cannot evidence is left unscored rather than assumed."} /></p>
 
           <div className="flex flex-col-reverse gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-end">
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
+              <Tr s={"Cancel"} /></Button>
             <Button type="submit" loading={loading} icon={<Save className="h-4 w-4" />}>
-              Save &amp; Recalculate Engine Score
-            </Button>
+              <Tr s={"Save & Recalculate Engine Score"} /></Button>
           </div>
         </form>
       </div>

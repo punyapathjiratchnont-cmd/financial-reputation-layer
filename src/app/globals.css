@@ -21,16 +21,21 @@
 
 @theme {
   /* ---- Surfaces ------------------------------------------------------- */
-  --color-canvas: #020617; /* slate-950 — page background */
-  --color-surface: #0f172a; /* slate-900 — grouped content */
-  --color-surface-elevated: #1e293b; /* slate-800 — raised / interactive */
-  --color-surface-sunken: #0b1220; /* between canvas and surface */
+  --color-canvas: #050505; /* near-black, no blue tint */
+  --color-surface: #0a0a0a;
+  --color-surface-elevated: #141414;
+  --color-surface-sunken: #080808;
 
   /* ---- Foreground ----------------------------------------------------- */
-  --color-fg: #f8fafc; /* slate-50  — primary text, headline */
-  --color-fg-secondary: #cbd5e1; /* slate-300 — supporting copy */
-  --color-fg-muted: #94a3b8; /* slate-400 — metadata (most used tier) */
-  --color-fg-subtle: #64748b; /* slate-500 — weakest text, still AA on canvas */
+  --color-fg: #f5f5f2; /* bone white */
+  --color-fg-secondary: #d2d2cd;
+  --color-fg-muted: #a3a39e;
+  /* Weakest text tier. This was slate-500 (#64748b), which measures 4.24:1 on
+     canvas — below the 4.5:1 WCAG AA bar for normal text. It carries real
+     metadata and captions in every surface, so it is lifted to the lightest
+     value that clears 4.5:1 on canvas, surface AND surface-elevated
+     (6.47 / 5.73 / 4.69) while staying visibly weaker than fg-muted. */
+  --color-fg-subtle: #8f8f8a; /* >= 4.5:1 on canvas and elevated surface */
 
   /* ---- Lines ---------------------------------------------------------- */
   --color-line: rgb(255 255 255 / 0.1);
@@ -38,11 +43,11 @@
   --color-line-strong: rgb(255 255 255 / 0.16);
 
   /* ---- Primary -------------------------------------------------------- */
-  --color-primary: #6366f1; /* indigo-500 */
-  --color-primary-hover: #818cf8; /* indigo-400 */
-  --color-primary-active: #4f46e5; /* indigo-600 */
-  --color-primary-soft: rgb(99 102 241 / 0.12);
-  --color-primary-line: rgb(99 102 241 / 0.3);
+  --color-primary: #ff3333; /* single hard accent: red */
+  --color-primary-hover: #ff5a4d;
+  --color-primary-active: #d92020;
+  --color-primary-soft: rgb(255 51 51 / 0.12);
+  --color-primary-line: rgb(255 51 51 / 0.35);
 
   /* ---- Status --------------------------------------------------------- */
   --color-success: #34d399; /* emerald-400 */
@@ -70,9 +75,9 @@
   /* ---- Insufficient Data ----------------------------------------------
      Deliberately neutral, never red. "Insufficient Data" is a valid answer,
      not a failure — it must not borrow the language of errors.              */
-  --color-insufficient: #94a3b8; /* slate-400 */
-  --color-insufficient-soft: rgb(148 163 184 / 0.08);
-  --color-insufficient-line: rgb(148 163 184 / 0.22);
+  --color-insufficient: #a3a39e;
+  --color-insufficient-soft: rgb(163 163 158 / 0.08);
+  --color-insufficient-line: rgb(163 163 158 / 0.22);
 
   /* ---- Typography scale ----------------------------------------------- */
   --text-display: clamp(2.25rem, 1.4rem + 3.4vw, 3.5rem);
@@ -143,7 +148,45 @@
      @theme to prevent. `--frl-radius-*` in :root stays the canonical ladder. */
   --radius-pill: 9999px;
 
+  /* ---- Palette re-tone --------------------------------------------------
+     Markup still references slate-* and indigo-* directly. Re-pointing those
+     scales moves every existing usage to neutral greys and red at once,
+     without touching each component. */
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f2f2f0;
+  --color-slate-200: #e2e2de;
+  --color-slate-300: #cfcfca;
+  --color-slate-400: #a3a39e;
+  --color-slate-500: #737370;
+  --color-slate-600: #525250;
+  --color-slate-700: #3a3a39;
+  --color-slate-800: #262626;
+  --color-slate-900: #141414;
+  --color-slate-950: #0a0a0a;
+  --color-indigo-50: #fff1ef;
+  --color-indigo-100: #ffe0dc;
+  --color-indigo-200: #ffc4bd;
+  --color-indigo-300: #ff9c91;
+  --color-indigo-400: #ff6b5e;
+  --color-indigo-500: #ff3333;
+  --color-indigo-600: #e02222;
+  --color-indigo-700: #b81818;
+  --color-indigo-800: #8c1111;
+  --color-indigo-900: #5e0c0c;
+  --color-indigo-950: #330606;
+
+  /* ---- Hard edges --------------------------------------------------------
+     Corners are cut, not softened. Pills stay for status tags only. */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 3px;
+  --radius-2xl: 3px;
+  --radius-3xl: 4px;
+
   --font-sans: var(--font-geist-sans);
+  --font-display: var(--font-unbounded), "Arial Black", sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
@@ -166,6 +209,7 @@
   --frl-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --frl-ease-emphasis: cubic-bezier(0.16, 1, 0.3, 1);
   --frl-focus-ring: var(--color-primary-hover);
+  --frl-ease-snap: cubic-bezier(0.7, 0, 0.2, 1);
 }
 
 /* ============================================================================
@@ -335,18 +379,70 @@
      selected panels). Restrained blur, visible edge, real shadow. Not for
      every card: translucency over a busy background costs legibility. */
   .frl-glass {
-    background: color-mix(in srgb, var(--color-surface) 72%, transparent);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-    backdrop-filter: blur(12px) saturate(140%);
+    background: var(--color-surface);
     border: 1px solid var(--color-line);
-    box-shadow: var(--shadow-float);
   }
-  /* Sticky navigation variant — quieter, no large shadow. */
+  /* Sticky navigation: a dark bar with a soft red bloom, blurred behind. */
   .frl-glass-nav {
-    background: color-mix(in srgb, var(--color-canvas) 70%, transparent);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-    backdrop-filter: blur(12px) saturate(140%);
-    border-bottom: 1px solid var(--color-line);
+    background:
+      radial-gradient(60% 260% at 82% -60%, rgb(255 51 51 / 0.34), transparent 62%),
+      radial-gradient(45% 240% at 4% -40%, rgb(130 30 20 / 0.4), transparent 62%),
+      rgb(5 5 5 / 0.82);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  }
+  .frl-navlink {
+    position: relative;
+    padding-block: 0.4rem;
+  }
+  .frl-navlink::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--color-primary);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 320ms var(--frl-ease-snap);
+  }
+  .frl-navlink:hover::after,
+  .frl-navlink[aria-current="page"]::after {
+    transform: scaleX(1);
+  }
+
+  /* Display type: Unbounded, a wide face. Used for the company name and the
+     score only; everything else stays in the body face for legibility. */
+  .frl-display {
+    font-family: var(--font-display);
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  /* Bento tile: a quiet raised panel. Different tiles get different sizes, so
+     the layout itself says which content matters more. */
+  .frl-tile {
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.015));
+    padding: 1.25rem;
+  }
+  @media (min-width: 640px) {
+    .frl-tile {
+      padding: 1.5rem;
+    }
+  }
+
+  /* One glow, behind the score only. */
+  .frl-hero-tile {
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 18px;
+    background:
+      radial-gradient(120% 90% at 8% 0%, rgb(255 90 40 / 0.34), transparent 55%),
+      radial-gradient(90% 80% at 100% 100%, rgb(255 51 51 / 0.16), transparent 60%),
+      #0b0b0b;
   }
 
   /* ---- Entrance motion -------------------------------------------------
@@ -489,5 +585,1276 @@
   .frl-enter-6 { animation-delay: 350ms; }
   .frl-ambient {
     animation: frl-drift 18s ease-in-out infinite alternate;
+  }
+}
+
+/* ---- FRL hard-edge motion ------------------------------------------------
+   Scroll reveal, snap-in bars and a marquee strip. All gated behind
+   no-preference; with reduced motion the final state is simply shown. */
+.frl-marquee-track {
+  display: flex;
+  width: max-content;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .frl-reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    clip-path: inset(0 0 12% 0);
+  }
+  .frl-reveal[data-in="true"] {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 0 0);
+    transition: opacity 500ms var(--frl-ease-snap), transform 600ms var(--frl-ease-snap),
+      clip-path 700ms var(--frl-ease-snap);
+  }
+  .frl-marquee-track {
+    animation: frl-marquee 28s linear infinite;
+  }
+  .frl-marquee:hover .frl-marquee-track {
+    animation-play-state: paused;
+  }
+  .frl-bar {
+    width: 0 !important;
+  }
+  .frl-bar[data-in="true"] {
+    width: var(--bar-w) !important;
+    transition: width 900ms var(--frl-ease-snap);
+  }
+}
+@keyframes frl-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .frl-marquee-track {
+    animation: none !important;
+  }
+}
+
+/* ============================================================================
+   City journey (scroll-driven, 2D side view). Variables are written by
+   CityJourney.tsx; the values below are the opening frame, so the first paint
+   before JS runs is the quiet start of the route.
+   ========================================================================== */
+.frl-city-scroll {
+  --p: 0;
+  --hint: 1;
+  --lead: 0;
+  --k0: 0;
+  --k1: 0;
+  --k2: 0;
+  --k3: 0;
+  --d0: 0;
+  --d1: 0;
+  --d2: 0;
+  --d3: 0;
+  --fin: 0;
+  --dim: 0;
+  position: relative;
+  height: 480vh;
+}
+@media (min-width: 768px) {
+  .frl-city-scroll {
+    height: 640vh;
+  }
+}
+.frl-city-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+/* cinematic vignette */
+.frl-city-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 55%, transparent 52%, rgb(0 0 0 / 0.72) 100%);
+}
+/* the scene fades out at the end of the road */
+.frl-city-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: #050505;
+  opacity: calc(var(--dim) * 0.8);
+  pointer-events: none;
+}
+
+/* ---- sky ---- */
+.frl-city-sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, #050505 0%, #12090a 55%, #2b0f0c 100%);
+}
+.frl-city-stars {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 58%;
+  transform: translateX(calc(var(--p) * -4vw));
+}
+.frl-city-stars i {
+  position: absolute;
+  border-radius: 9999px;
+  background: #fff;
+  opacity: 0.75;
+}
+.frl-shoot {
+  position: absolute;
+  width: 150px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fff);
+  opacity: 0;
+  transform: rotate(-28deg);
+}
+.frl-city-moon {
+  position: absolute;
+  left: 66%;
+  bottom: 34vh;
+  width: 36vmin;
+  height: 36vmin;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 38% 36%, #ff9a7a, #ff4a36 52%, #8c1511 100%);
+  box-shadow: 0 0 9vmin 3vmin rgb(255 60 40 / 0.35);
+  transform: translateX(calc(var(--p) * -8vw));
+}
+.frl-city-moon::after {
+  content: "";
+  position: absolute;
+  inset: -16%;
+  border: 1px dashed rgb(255 130 100 / 0.45);
+  border-radius: 9999px;
+}
+
+/* ---- skyline layers (parallax) ---- */
+.frl-city-layer {
+  position: absolute;
+  left: 0;
+  bottom: 13vh;
+  height: 82vh;
+  will-change: transform;
+}
+.frl-city-far {
+  width: 220vw;
+  transform: translate3d(calc(var(--p) * -120vw), 0, 0);
+  opacity: 0.55;
+}
+.frl-city-mid {
+  width: 320vw;
+  transform: translate3d(calc(var(--p) * -220vw), 0, 0);
+  opacity: 0.8;
+}
+.frl-city-near {
+  width: 480vw;
+  transform: translate3d(calc(var(--p) * -380vw), 0, 0);
+}
+.frl-city-building {
+  position: absolute;
+  bottom: 0;
+  background-color: #0e0e0e;
+  background-image: radial-gradient(rgb(255 170 90 / 0.2) 1.4px, transparent 2px);
+  background-size: 11px 15px;
+  border-top: 2px solid rgb(255 255 255 / 0.07);
+  border-left: 1px solid rgb(255 255 255 / 0.04);
+}
+.frl-city-mid .frl-city-building {
+  background-color: #131313;
+}
+.frl-city-near .frl-city-building {
+  background-color: #181818;
+}
+.frl-city-building i {
+  position: absolute;
+  width: 6px;
+  height: 8px;
+  background: #ffb347;
+  box-shadow: 0 0 8px 2px rgb(255 150 60 / 0.55);
+}
+.frl-city-beacon {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 9999px;
+  background: #ff3333;
+  box-shadow: 0 0 10px 3px rgb(255 51 51 / 0.8);
+  text-decoration: none;
+}
+.frl-city-neon {
+  position: absolute;
+  left: 50%;
+  top: 7%;
+  transform: translateX(-50%);
+  padding: 8px 5px;
+  border: 1.5px solid currentColor;
+  font-family: var(--font-display);
+  font-size: clamp(11px, 1.6vw, 20px);
+  letter-spacing: 0.3em;
+  line-height: 1;
+  writing-mode: vertical-rl;
+  text-shadow: 0 0 10px currentColor;
+  box-shadow: 0 0 14px currentColor, inset 0 0 10px currentColor;
+}
+.frl-city-search {
+  position: absolute;
+  bottom: 0;
+  width: 12vw;
+  height: 90vh;
+  transform-origin: 50% 100%;
+  background: linear-gradient(to top, rgb(255 225 200 / 0.3), transparent 88%);
+  clip-path: polygon(46% 100%, 54% 100%, 100% 0, 0 0);
+}
+.frl-city-haze {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 13vh;
+  height: 42vh;
+  pointer-events: none;
+  background: linear-gradient(to top, rgb(255 51 51 / 0.2), transparent);
+}
+.frl-city-fog {
+  position: absolute;
+  left: -20vw;
+  right: -20vw;
+  bottom: 13vh;
+  height: 26vh;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 70% at 20% 100%, rgb(255 90 70 / 0.18), transparent 70%),
+    radial-gradient(36% 60% at 70% 100%, rgb(255 51 51 / 0.16), transparent 70%);
+}
+
+/* ---- station towers ---- */
+.frl-city-stations {
+  pointer-events: none;
+}
+.frl-city-tower {
+  position: absolute;
+  bottom: 0;
+  width: 12vw;
+  min-width: 90px;
+  height: 70vh;
+  background: linear-gradient(to bottom, #2e1111, #170a0a);
+  border: 2px solid rgb(255 51 51 / 0.7);
+  border-bottom: 0;
+  box-shadow: 0 0 44px rgb(255 51 51 / 0.32);
+  display: flex;
+  justify-content: center;
+  padding-top: 5vh;
+}
+.frl-city-tower b {
+  font-size: clamp(1.4rem, 4vw, 3rem);
+  color: #ff5a4d;
+  text-shadow: 0 0 18px rgb(255 51 51 / 0.85);
+}
+.frl-tower-spire {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 3px;
+  height: 9vh;
+  margin-left: -1.5px;
+  background: linear-gradient(to top, #6b2a24, #ff5a4d);
+}
+.frl-tower-beacon {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8.4vh);
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  border-radius: 9999px;
+  background: #ff3333;
+  box-shadow: 0 0 16px 5px rgb(255 51 51 / 0.85);
+}
+.frl-tower-beam {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9vh);
+  width: 5vw;
+  height: 60vh;
+  margin-left: -2.5vw;
+  background: linear-gradient(to top, rgb(255 70 50 / 0.55), transparent);
+  clip-path: polygon(38% 100%, 62% 100%, 100% 0, 0 0);
+  mix-blend-mode: screen;
+}
+.frl-tower-ring {
+  position: absolute;
+  left: 50%;
+  top: -1.5vh;
+  width: 15vw;
+  height: 3.6vh;
+  margin-left: -7.5vw;
+  border: 2px dashed rgb(255 100 80 / 0.9);
+  border-radius: 9999px;
+  box-shadow: 0 0 22px rgb(255 51 51 / 0.65), inset 0 0 14px rgb(255 51 51 / 0.45);
+}
+.frl-tower-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #ff8a78, transparent);
+  box-shadow: 0 0 14px #ff5a4d;
+  opacity: 0.8;
+}
+
+/* ---- road ---- */
+.frl-city-road {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  height: 13vh;
+  background: #090909;
+  border-top: 2px solid rgb(255 80 60 / 0.55);
+  box-shadow: 0 -2px 24px rgb(255 51 51 / 0.25);
+}
+.frl-city-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 52%;
+  height: 3px;
+  background-image: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.4) 0 36px, transparent 36px 84px);
+  background-position-x: calc(var(--p) * -380vw);
+}
+/* wet asphalt: the window lights smear down the road */
+.frl-city-wet {
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(90deg, rgb(255 160 70 / 0.16) 0 3px, transparent 3px 90px),
+    repeating-linear-gradient(90deg, rgb(255 60 50 / 0.14) 0 5px, transparent 5px 170px);
+  background-position-x: calc(var(--p) * -380vw), calc(var(--p) * -380vw);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 85%);
+  mask-image: linear-gradient(to bottom, #000, transparent 85%);
+}
+
+/* ---- foreground: moves fastest, so it feels closest ---- */
+.frl-city-fore {
+  position: absolute;
+  left: 0;
+  bottom: 8vh;
+  z-index: 2;
+  width: 1000vw;
+  height: 92vh;
+  pointer-events: none;
+  transform: translate3d(calc(var(--p) * -900vw), 0, 0);
+  will-change: transform;
+}
+.frl-city-lamp {
+  position: absolute;
+  bottom: 0;
+  width: 4px;
+  height: 24vh;
+  background: linear-gradient(to top, #121212, #2a2a2a);
+}
+.frl-city-lamp::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: -4px;
+  width: 18px;
+  height: 8px;
+  border-radius: 4px;
+  background: #ffe9b8;
+  box-shadow: 0 0 22px 8px rgb(255 190 100 / 0.75);
+}
+.frl-city-lamp::after {
+  content: "";
+  position: absolute;
+  left: -6vw;
+  top: 2px;
+  width: 16vw;
+  height: 24vh;
+  background: linear-gradient(to bottom, rgb(255 190 100 / 0.22), transparent 85%);
+  clip-path: polygon(46% 0, 54% 0, 100% 100%, 0 100%);
+}
+.frl-city-bridge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 72vw;
+}
+.frl-city-bridge::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 9vh;
+  background: linear-gradient(#0b0b0b, #050505);
+  border-bottom: 2px solid rgb(255 80 60 / 0.65);
+  box-shadow: 0 6px 30px rgb(255 51 51 / 0.3);
+}
+.frl-city-bridge i {
+  position: absolute;
+  top: 9vh;
+  bottom: 0;
+  width: 4vw;
+  background: linear-gradient(to right, #060606, #101010);
+}
+.frl-city-bridge i:first-child {
+  left: 6vw;
+}
+.frl-city-bridge i:last-child {
+  right: 6vw;
+}
+
+/* ---- text over the scene ---- */
+.frl-city-lead {
+  position: absolute;
+  z-index: 5;
+  top: 18vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  opacity: var(--lead);
+}
+.frl-city-hint {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  bottom: 20vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-fg-secondary);
+  text-shadow: 0 0 10px #000, 0 0 4px #000;
+  opacity: var(--hint);
+}
+.frl-city-hint-line {
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(to bottom, var(--color-primary), transparent);
+}
+.frl-city-card {
+  --k: 0;
+  position: absolute;
+  z-index: 5;
+  left: 5vw;
+  top: 22vh;
+  max-width: min(88vw, 28rem);
+  padding: 1.25rem 1.5rem;
+  background: rgb(5 5 5 / 0.82);
+  border-left: 3px solid var(--color-primary);
+  box-shadow: 0 0 40px rgb(255 51 51 / 0.2);
+  opacity: var(--k);
+  transform: translateX(calc((1 - var(--k)) * -28px));
+  pointer-events: none;
+}
+.frl-city-route {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 9vh;
+  transform: translateX(-50%);
+  display: flex;
+  gap: clamp(0.75rem, 3vw, 2.5rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.frl-city-route li {
+  --d: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  opacity: calc(0.35 + var(--d) * 0.65);
+  font-size: 0.6875rem;
+  color: var(--color-fg-secondary);
+}
+.frl-city-route li span {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-primary);
+}
+.frl-city-route li em {
+  font-style: normal;
+}
+@media (max-width: 480px) {
+  .frl-city-route li em {
+    display: none;
+  }
+}
+.frl-city-final {
+  position: absolute;
+  z-index: 7;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 1.25rem 2rem;
+  pointer-events: none;
+}
+.frl-city-step {
+  border-top: 2px solid var(--color-primary);
+  padding-top: 1rem;
+  opacity: var(--fin);
+  transform: translateY(calc((1 - var(--fin)) * 24px));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .frl-city-stars i {
+    animation: frl-star 3.4s ease-in-out infinite;
+  }
+  .frl-shoot {
+    animation: frl-shoot 14s linear infinite;
+  }
+  .frl-city-moon::after {
+    animation: frl-spin 70s linear infinite;
+  }
+  .frl-city-search {
+    animation: frl-sway 8s ease-in-out infinite alternate;
+  }
+  .frl-city-building i {
+    animation: frl-star 5s ease-in-out infinite;
+  }
+  .frl-city-beacon,
+  .frl-tower-beacon {
+    animation: frl-blink 1.6s ease-in-out infinite;
+  }
+  .frl-city-neon {
+    animation: frl-flicker2 5s linear infinite;
+  }
+  .frl-tower-ring {
+    animation: frl-ringpulse 3.4s ease-in-out infinite;
+  }
+  .frl-tower-scan {
+    animation: frl-scanup 3.2s linear infinite;
+  }
+  .frl-tower-beam {
+    animation: frl-beam 4s ease-in-out infinite alternate;
+  }
+  .frl-city-lamp::before {
+    animation: frl-blink 6s ease-in-out infinite;
+  }
+  .frl-city-fog {
+    animation: frl-fogdrift 26s ease-in-out infinite alternate;
+  }
+  .frl-city-hint-line {
+    animation: frl-hint 1.6s ease-in-out infinite;
+  }
+}
+@keyframes frl-star {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes frl-shoot {
+  0%,
+  86% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: -46vw 24vh;
+  }
+}
+@keyframes frl-sway {
+  from {
+    transform: rotate(-24deg);
+  }
+  to {
+    transform: rotate(24deg);
+  }
+}
+@keyframes frl-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+@keyframes frl-flicker2 {
+  0%,
+  92%,
+  100% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 0.35;
+  }
+  96% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.5;
+  }
+}
+@keyframes frl-ringpulse {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scaleX(1.18);
+    opacity: 0.45;
+  }
+}
+@keyframes frl-scanup {
+  from {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  to {
+    transform: translateY(-69vh);
+    opacity: 0;
+  }
+}
+@keyframes frl-beam {
+  from {
+    opacity: 0.5;
+    transform: scaleY(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+@keyframes frl-fogdrift {
+  from {
+    transform: translateX(-4vw);
+  }
+  to {
+    transform: translateX(4vw);
+  }
+}
+@keyframes frl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes frl-hint {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+    transform-origin: top;
+  }
+  50% {
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+}
+
+/* Reduced motion: no scene. The same four steps are simply shown. */
+@media (prefers-reduced-motion: reduce) {
+  .frl-city-scroll {
+    --fin: 1;
+    height: auto;
+  }
+  .frl-city-stage {
+    position: relative;
+    height: auto;
+  }
+  .frl-city-stage::before,
+  .frl-city-stage::after,
+  .frl-city-sky,
+  .frl-city-stars,
+  .frl-city-moon,
+  .frl-city-layer,
+  .frl-city-haze,
+  .frl-city-fog,
+  .frl-city-road,
+  .frl-city-fore,
+  .frl-city-lead,
+  .frl-city-hint,
+  .frl-city-card,
+  .frl-city-route {
+    display: none;
+  }
+  .frl-city-final {
+    position: relative;
+    padding-top: 7rem;
+    padding-bottom: 3rem;
+  }
+}
+
+/* ============================================================================
+   Landing-page motion. Everything below is presentation only. Elements marked
+   data-fx are revealed once by ScrollFx (data-in="true"); frl-spot cards get a
+   light that follows the pointer. With reduced motion nothing hides or moves.
+   ========================================================================== */
+.frl-spot {
+  position: relative;
+  isolation: isolate;
+}
+.frl-spot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(280px circle at var(--mx, 50%) var(--my, -20%), rgb(255 90 60 / 0.2), transparent 65%);
+  transition: opacity 250ms ease;
+}
+.frl-spot:hover::before {
+  opacity: 1;
+}
+
+.frl-lift::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--color-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 500ms var(--frl-ease-snap);
+  pointer-events: none;
+}
+.frl-lift:hover::after {
+  transform: scaleX(1);
+}
+.frl-lift {
+  transition: transform 380ms var(--frl-ease-snap), border-color 200ms ease, box-shadow 300ms ease;
+}
+.frl-lift:hover {
+  transform: translateY(-6px);
+  border-color: rgb(255 51 51 / 0.55) !important;
+  box-shadow: 0 22px 44px -22px rgb(255 51 51 / 0.45);
+}
+.frl-icon,
+.frl-award {
+  transition: transform 380ms var(--frl-ease-snap), border-color 200ms ease, box-shadow 300ms ease, color 200ms ease;
+}
+.frl-lift:hover .frl-icon {
+  transform: rotate(-8deg) scale(1.1);
+  border-color: rgb(255 51 51 / 0.6);
+  box-shadow: 0 0 18px rgb(255 51 51 / 0.4);
+}
+.frl-lift:hover .frl-award {
+  transform: rotate(24deg) scale(1.25);
+  color: var(--color-primary-hover);
+}
+.frl-chip {
+  transition: transform 220ms var(--frl-ease-snap), background-color 120ms, border-color 120ms, color 120ms;
+}
+.frl-chip:hover {
+  transform: translateY(-3px);
+}
+.frl-trust svg {
+  transition: transform 300ms var(--frl-ease-snap);
+}
+.frl-trust:hover svg {
+  transform: scale(1.3) rotate(-8deg);
+}
+.frl-row {
+  transition: transform 260ms var(--frl-ease-snap), border-color 200ms ease;
+}
+.frl-row:hover {
+  transform: translateX(5px);
+  border-color: rgb(255 255 255 / 0.2);
+}
+.frl-cta {
+  background-image: radial-gradient(60% 90% at 50% 0%, rgb(255 51 51 / 0.2), transparent 70%);
+}
+
+.frl-eyebrow::after {
+  content: "";
+  display: inline-block;
+  width: 3rem;
+  height: 1px;
+  margin-left: 0.75rem;
+  vertical-align: middle;
+  background: var(--color-primary);
+}
+.frl-method {
+  position: relative;
+}
+.frl-method::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1.25rem;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), rgb(255 51 51 / 0));
+  transform-origin: left;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-fx] {
+    opacity: 0;
+    transition: opacity 650ms var(--frl-ease-snap), transform 750ms var(--frl-ease-snap);
+    transition-delay: calc(var(--i, 0) * 90ms);
+  }
+  [data-fx="up"] {
+    transform: translateY(32px);
+  }
+  [data-fx="left"] {
+    transform: translateX(-48px);
+  }
+  [data-fx="scale"] {
+    transform: translateY(24px) scale(0.94);
+  }
+  [data-fx="card"] {
+    transform: translateY(56px) scale(0.95);
+    clip-path: inset(0 0 22% 0);
+    transition: opacity 650ms var(--frl-ease-snap), transform 800ms var(--frl-ease-snap),
+      clip-path 800ms var(--frl-ease-snap);
+    transition-delay: calc(var(--i, 0) * 110ms);
+  }
+  [data-fx="line"] {
+    opacity: 1;
+  }
+  [data-fx][data-in="true"] {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 0 0);
+  }
+
+  .frl-eyebrow::after {
+    width: 0;
+    transition: width 900ms var(--frl-ease-snap) 200ms;
+  }
+  .frl-eyebrow[data-in="true"]::after {
+    width: 3rem;
+  }
+  .frl-method::before {
+    transform: scaleX(0);
+    transition: transform 1400ms var(--frl-ease-snap);
+  }
+  .frl-method[data-in="true"]::before {
+    transform: scaleX(1);
+  }
+
+  .frl-chain-dot {
+    animation: frl-ping 2.8s ease-out infinite;
+    animation-delay: calc(var(--i, 0) * 0.7s);
+  }
+  .frl-scan::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -40%;
+    height: 40%;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, rgb(255 51 51 / 0.09), transparent);
+    animation: frl-scan 6s linear infinite;
+  }
+}
+@keyframes frl-ping {
+  0% {
+    box-shadow: 0 0 0 0 rgb(255 51 51 / 0.6);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 12px rgb(255 51 51 / 0);
+  }
+}
+@keyframes frl-scan {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(360%);
+  }
+}
+
+/* ============================================================================
+   Cut-corner frames + capability illustrations. The wrapper carries the lift
+   and the glow (a filter would be clipped if it sat on the clipped element).
+   ========================================================================== */
+.frl-bevel-wrap {
+  position: relative;
+  transition: transform 380ms var(--frl-ease-snap), filter 300ms ease;
+}
+.frl-hoverlift:hover {
+  transform: translateY(-6px);
+  filter: drop-shadow(0 20px 26px rgb(255 51 51 / 0.28));
+}
+.frl-bevel {
+  --cut: var(--bevel, 26px);
+  padding: 1px;
+  background: linear-gradient(135deg, rgb(255 51 51 / 0.6), rgb(255 255 255 / 0.12) 38%, rgb(255 255 255 / 0.05));
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut)) 0,
+    100% var(--cut),
+    100% 100%,
+    var(--cut) 100%,
+    0 calc(100% - var(--cut))
+  );
+  transition: background 300ms ease;
+}
+.frl-bevel-wrap:hover .frl-bevel {
+  background: linear-gradient(135deg, #ff3333, rgb(255 255 255 / 0.22) 45%, rgb(255 51 51 / 0.35));
+}
+.frl-bevel-in {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #151515, #0b0b0b);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut) + 1px) 0,
+    100% calc(var(--cut) - 1px),
+    100% 100%,
+    calc(var(--cut) - 1px) 100%,
+    0 calc(100% - var(--cut) + 1px)
+  );
+}
+.frl-bevel-hot {
+  background: linear-gradient(135deg, #ff3333, rgb(255 255 255 / 0.12) 55%, rgb(255 51 51 / 0.5));
+}
+.frl-bevel-in-hot {
+  background: linear-gradient(180deg, #2a0f0f, #0e0707);
+}
+.frl-ghost {
+  position: absolute;
+  right: 1.4rem;
+  top: 0.4rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(3.5rem, 7vw, 6rem);
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1px rgb(255 255 255 / 0.1);
+  pointer-events: none;
+  user-select: none;
+}
+.frl-bevel-wrap:hover .frl-ghost {
+  -webkit-text-stroke-color: rgb(255 90 60 / 0.5);
+}
+.frl-bevel-wrap:hover .frl-icon {
+  transform: rotate(-8deg) scale(1.1);
+  border-color: rgb(255 51 51 / 0.6);
+  box-shadow: 0 0 18px rgb(255 51 51 / 0.4);
+}
+.frl-bevel-wrap:hover .frl-award {
+  transform: rotate(24deg) scale(1.25);
+  color: var(--color-primary-hover);
+}
+.frl-chev {
+  position: absolute;
+  right: -1.15rem;
+  top: 50%;
+  z-index: 2;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--color-primary-hover);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .frl-bevel-wrap[data-in="true"] {
+    clip-path: none;
+  }
+  .frl-sweep {
+    transform-origin: 150px 150px;
+    animation: frl-spin 6s linear infinite;
+  }
+  .frl-ping-a,
+  .frl-ping-b {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: frl-ringping 3.2s ease-out infinite;
+  }
+  .frl-ping-b {
+    animation-delay: 1.6s;
+  }
+  .frl-wave {
+    stroke-dasharray: 520;
+    animation: frl-wavedraw 4.5s ease-in-out infinite;
+  }
+  .frl-twinkle {
+    animation: frl-twinkle 3.6s ease-in-out infinite;
+  }
+  .frl-drop {
+    animation: frl-pin 2.4s ease-in-out infinite;
+  }
+  .frl-beam {
+    animation: frl-beam 4.2s ease-in-out infinite alternate;
+  }
+  .frl-chev {
+    animation: frl-nudge 1.6s ease-in-out infinite;
+  }
+}
+@keyframes frl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes frl-ringping {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(14);
+    opacity: 0;
+  }
+}
+@keyframes frl-wavedraw {
+  0% {
+    stroke-dashoffset: 520;
+  }
+  45%,
+  75% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -520;
+  }
+}
+@keyframes frl-twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes frl-pin {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+@keyframes frl-beam {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(300px);
+  }
+}
+@keyframes frl-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+}
+
+/* Card tones + selected state for the shared cut-corner panel */
+.frl-in-elevated {
+  background: linear-gradient(180deg, #1d1d1d, #111111);
+}
+.frl-in-muted {
+  background: linear-gradient(180deg, #101010, #0a0a0a);
+}
+.frl-bevel-wrap[data-selected] .frl-bevel {
+  background: linear-gradient(135deg, #ff3333, #ff7a60);
+}
+
+/* ============================================================================
+   Small cut-corner tiles, spin helpers, and the self-drawing history timeline
+   ========================================================================== */
+.frl-chip-tile {
+  position: relative;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.015));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  transition: box-shadow 220ms ease, transform 260ms var(--frl-ease-snap), background 220ms ease;
+}
+.frl-chip-tile::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 3px;
+  height: 22px;
+  background: rgb(255 255 255 / 0.25);
+}
+.frl-chip-tile-on::before {
+  background: var(--color-success);
+  box-shadow: 0 0 12px var(--color-success);
+}
+.frl-chip-tile:hover {
+  transform: translateX(4px);
+  box-shadow: inset 0 0 0 1px rgb(255 90 70 / 0.6);
+  background: linear-gradient(180deg, rgb(255 90 70 / 0.12), rgb(255 255 255 / 0.02));
+}
+
+.frl-timeline {
+  position: relative;
+  margin-left: 0.4rem;
+  padding-left: 2.2rem;
+  list-style: none;
+}
+.frl-timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--color-primary), rgb(255 51 51 / 0.05));
+  transform-origin: top;
+}
+.frl-timeline-item {
+  position: relative;
+  padding-bottom: 1.8rem;
+}
+.frl-timeline-item:last-child {
+  padding-bottom: 0;
+}
+.frl-timeline-dot {
+  position: absolute;
+  left: -2.2rem;
+  top: 0.55rem;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  border: 2px solid var(--color-primary);
+  background: var(--color-canvas);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .frl-timeline::before {
+    transform: scaleY(0);
+    transition: transform 1600ms var(--frl-ease-snap);
+  }
+  .frl-timeline[data-in="true"]::before {
+    transform: scaleY(1);
+  }
+  .frl-timeline-dot {
+    animation: frl-ping 2.8s ease-out infinite;
+    animation-delay: calc(var(--i, 0) * 0.7s);
+  }
+  .frl-spin-slow {
+    transform-origin: 150px 150px;
+    animation: frl-spin 40s linear infinite;
+  }
+  .frl-axis-dot {
+    animation: frl-blink 2.6s ease-in-out infinite;
+  }
+}
+
+/* ============================================================================
+   Cut-corner panel for plain pages (forms, rows, verdict boxes)
+   ========================================================================== */
+.frl-panel {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(180deg, #161616, #0b0b0b);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px));
+  transition: box-shadow 220ms ease, background 220ms ease;
+}
+.frl-panel:hover {
+  box-shadow: inset 0 0 0 1px rgb(255 90 70 / 0.5);
+}
+.frl-panel-on {
+  background: linear-gradient(180deg, #2a0e0e, #120808);
+  box-shadow: inset 0 0 0 1px #ff3333, inset 0 0 46px rgb(255 51 51 / 0.22);
+}
+.frl-panel-ok {
+  background: linear-gradient(180deg, rgb(52 211 153 / 0.14), #0a0f0c);
+  box-shadow: inset 0 0 0 1px rgb(52 211 153 / 0.5);
+}
+.frl-panel-warn {
+  background: linear-gradient(180deg, rgb(251 191 36 / 0.12), #12100a);
+  box-shadow: inset 0 0 0 1px rgb(251 191 36 / 0.45);
+}
+.frl-auth-bloom {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(50% 60% at 78% 10%, rgb(255 51 51 / 0.22), transparent 65%),
+    radial-gradient(40% 50% at 12% 90%, rgb(255 90 50 / 0.14), transparent 65%);
+}
+
+/* Notice dialog shown after the city walk */
+.frl-terms-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  overflow-y: auto;
+  background: rgb(3 3 3 / 0.86);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.frl-terms-wrap {
+  width: 100%;
+  max-width: 36rem;
+  filter: drop-shadow(0 30px 60px rgb(255 51 51 / 0.25));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .frl-terms-overlay {
+    animation: frl-terms-fade 320ms ease-out both;
+  }
+  .frl-terms-wrap {
+    animation: frl-terms-rise 520ms var(--frl-ease-snap) both;
+  }
+}
+@keyframes frl-terms-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes frl-terms-rise {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.96);
+  }
+}
+
+/* Helpers for the assessment page */
+@media (prefers-reduced-motion: no-preference) {
+  .frl-chev-static {
+    animation: frl-nudge 1.6s ease-in-out infinite;
+  }
+  .frl-flow {
+    animation: frl-dashflow 1.2s linear infinite;
+  }
+}
+@keyframes frl-dashflow {
+  to {
+    stroke-dashoffset: -18;
   }
 }

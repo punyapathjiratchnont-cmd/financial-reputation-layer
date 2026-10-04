@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
+import { TH_UI } from './th-ui';
+
 export type Language = 'en' | 'th';
 
 const translations: Record<Language, Record<string, string>> = {
@@ -204,6 +206,87 @@ const translations: Record<Language, Record<string, string>> = {
     'common.search': 'ค้นหาบริษัท',
     'common.founded': 'ก่อตั้งเมื่อ',
     'common.reg': 'เลขทะเบียน:',
+
+    // Company profile (key is the English sentence; English falls back to the key)
+    "Directory": "ไดเรกทอรี",
+    "Search": "ค้นหา",
+    "Search Companies": "ค้นหาบริษัท",
+    "Public profile": "โปรไฟล์สาธารณะ",
+    "Owner tools": "เครื่องมือเจ้าของ",
+    "Sample data.": "ข้อมูลตัวอย่าง",
+    "This is not a real company and the score is not a real reputation.": "นี่ไม่ใช่บริษัทจริง และคะแนนไม่ใช่ชื่อเสียงจริง",
+    "Company Reputation Profile": "โปรไฟล์ชื่อเสียงบริษัท",
+    "Score": "คะแนน",
+    "About": "ข้อมูลบริษัท",
+    "How it’s made": "คะแนนมาจากอะไร",
+    "Proof": "หลักฐาน",
+    "Problems": "ปัญหา",
+    "Verified by FRL": "ยืนยันโดย FRL",
+    "Not verified by FRL": "ยังไม่ได้รับการยืนยันโดย FRL",
+    "Verification status not reported": "ไม่มีข้อมูลสถานะการยืนยัน",
+    "Claimed profile": "เจ้าของรับรองโปรไฟล์แล้ว",
+    "Public profile (unclaimed)": "โปรไฟล์สาธารณะ (ยังไม่มีเจ้าของรับรอง)",
+    "Demo reputation score — not real": "คะแนนตัวอย่าง — ไม่ใช่ของจริง",
+    "Reputation score": "คะแนนชื่อเสียง",
+    "No score yet": "ยังไม่มีคะแนน",
+    "Based on the records FRL holds about this company. A guide, not a guarantee.": "อิงจากข้อมูลที่ FRL มีเกี่ยวกับบริษัทนี้ ใช้เป็นแนวทาง ไม่ใช่การรับประกัน",
+    "FRL does not have enough verified records to give this company a score yet.": "FRL ยังมีข้อมูลที่ยืนยันแล้วไม่พอที่จะให้คะแนนบริษัทนี้",
+    "See how it’s made": "ดูว่าคะแนนมาจากอะไร",
+    "Edit my company data": "แก้ไขข้อมูลบริษัทของฉัน",
+    "About this company": "เกี่ยวกับบริษัทนี้",
+    "Who they are and where the data comes from.": "บริษัทคือใคร และข้อมูลมาจากไหน",
+    "Business type": "ประเภทธุรกิจ",
+    "Country": "ประเทศ",
+    "Founded": "ก่อตั้ง",
+    "Registration no.": "เลขทะเบียน",
+    "Country not reported": "ไม่มีข้อมูลประเทศ",
+    "Not reported": "ไม่มีข้อมูล",
+    "Company overview not available.": "ไม่มีคำอธิบายบริษัท",
+    "Source:": "แหล่งที่มา:",
+    "Retrieved:": "ดึงข้อมูลเมื่อ:",
+    "How the score is made": "คะแนนนี้มาจากอะไร",
+    "Four areas feed the score. Each is marked out of 1000.": "คะแนนมาจาก 4 ด้าน แต่ละด้านเต็ม 1000",
+    "Payment Reliability": "ความน่าเชื่อถือด้านการชำระเงิน",
+    "Business Reliability": "ความน่าเชื่อถือด้านธุรกิจ",
+    "Financial Stability": "ความมั่นคงทางการเงิน",
+    "Transaction History": "ประวัติธุรกรรม",
+    "Not enough verified payment records.": "ยังมีบันทึกการชำระเงินที่ยืนยันแล้วไม่พอ",
+    "Not enough verified business attestation data.": "ยังมีข้อมูลรับรองทางธุรกิจที่ยืนยันแล้วไม่พอ",
+    "Financial stability metrics unavailable.": "ไม่มีตัวชี้วัดความมั่นคงทางการเงิน",
+    "Transaction history data not submitted.": "ยังไม่มีข้อมูลประวัติธุรกรรม",
+    "Not enough data": "ข้อมูลไม่พอ",
+    "Insufficient Data": "ข้อมูลไม่พอ",
+    "Strong": "แข็งแกร่ง",
+    "Good": "ดี",
+    "Stable": "คงที่",
+    "Moderate": "ปานกลาง",
+    "Public Source": "แหล่งสาธารณะ",
+    "Company Provided": "บริษัทให้ข้อมูล",
+    "Verified Record": "บันทึกที่ยืนยันแล้ว",
+    "In short": "สรุปสั้นๆ",
+    "Data status:": "สถานะข้อมูล:",
+    "Data status not reported.": "ไม่มีข้อมูลสถานะ",
+    "Strengths": "จุดแข็ง",
+    "Things to consider": "ควรพิจารณา",
+    "No specific strengths recorded.": "ไม่มีบันทึกจุดแข็ง",
+    "No specific warnings recorded.": "ไม่มีบันทึกข้อควรระวัง",
+    "Score trend over time (0 – 1000)": "แนวโน้มคะแนนตามเวลา (0 – 1000)",
+    "No historical reputation data is available.": "ไม่มีข้อมูลคะแนนย้อนหลัง",
+    "Records and events behind the reputation. Each one shows its source.": "ข้อมูลและเหตุการณ์เบื้องหลังชื่อเสียง แต่ละรายการระบุแหล่งที่มา",
+    "Achievements & projects": "ผลงานและโครงการ",
+    "Business relationships": "ความสัมพันธ์ทางธุรกิจ",
+    "Reputation history": "ประวัติชื่อเสียง",
+    "Source": "แหล่งที่มา",
+    "No public achievements listed.": "ไม่มีผลงานสาธารณะ",
+    "No public relationship records listed.": "ไม่มีข้อมูลความสัมพันธ์สาธารณะ",
+    "No historical events recorded.": "ไม่มีบันทึกเหตุการณ์ในอดีต",
+    "Known concerns and missing information.": "ข้อกังวลที่ทราบและข้อมูลที่ยังขาด",
+    "No current issues.": "ไม่พบปัญหาในขณะนี้",
+    "No verified issues have been identified from the available data.": "ไม่พบปัญหาที่ยืนยันได้จากข้อมูลที่มี",
+    "Confirmed problems": "ปัญหาที่ยืนยันแล้ว",
+    "Missing information": "ข้อมูลที่ยังขาด",
+    "Automated analysis (interpretation, not fact)": "การวิเคราะห์อัตโนมัติ (การตีความ ไม่ใช่ข้อเท็จจริง)",
+    "A registry record is not an FRL verification. Records marked as demo data are development samples and are never presented as verified companies.": "ข้อมูลจากทะเบียนไม่ใช่การยืนยันโดย FRL ข้อมูลที่ระบุว่าเป็นตัวอย่างใช้เพื่อการพัฒนาเท่านั้น และจะไม่ถูกแสดงเป็นบริษัทที่ยืนยันแล้ว",
   },
 };
 
@@ -237,7 +320,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   };
 
   const t = (key: string, fallback?: string): string => {
-    return translations[language]?.[key] || translations['en']?.[key] || fallback || key;
+    if (language === 'th') {
+      // dictionary entries (English text as the key) win over older per-key text
+      const ui = TH_UI[key] || (fallback ? TH_UI[fallback] : undefined);
+      if (ui) return ui;
+    }
+    return (
+      translations[language]?.[key] ||
+      translations['en']?.[key] ||
+      fallback ||
+      key
+    );
   };
 
   return (
@@ -251,6 +344,17 @@ export function useLanguage() {
   return useContext(LanguageContext);
 }
 
+/** Thai text for an English string, from either dictionary, or undefined. */
+export function translateTh(key: string): string | undefined {
+  return TH_UI[key] || translations.th[key];
+}
+
+/** Renders interface text through the dictionary. The English text is the key. */
+export function Tr({ s }: { s: string }) {
+  const { t } = useLanguage();
+  return <>{t(s)}</>;
+}
+
 export function LanguageToggle() {
   const { language, setLanguage } = useLanguage();
 
@@ -258,7 +362,7 @@ export function LanguageToggle() {
     <div className="inline-flex items-center rounded-full border border-white/15 bg-black/40 p-0.5 text-xs font-medium backdrop-blur-md">
       <button
         onClick={() => setLanguage('en')}
-        className={`px-2.5 py-1 rounded-full transition-all ${
+        className={`whitespace-nowrap px-2 sm:px-2.5 py-1 rounded-full transition-all ${
           language === 'en'
             ? 'bg-indigo-600 text-white font-bold shadow-sm'
             : 'text-slate-400 hover:text-slate-200'
@@ -268,7 +372,7 @@ export function LanguageToggle() {
       </button>
       <button
         onClick={() => setLanguage('th')}
-        className={`px-2.5 py-1 rounded-full transition-all ${
+        className={`whitespace-nowrap px-2 sm:px-2.5 py-1 rounded-full transition-all ${
           language === 'th'
             ? 'bg-indigo-600 text-white font-bold shadow-sm'
             : 'text-slate-400 hover:text-slate-200'

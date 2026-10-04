@@ -18,9 +18,13 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { MOCK_COMPANIES } from '@/lib/mockData';
-import { useLanguage, LanguageToggle } from '@/lib/i18n';
-import { Badge, Button, Card, Container, Section } from '@/components/ui';
+import { Badge, Button, Container, Section } from '@/components/ui';
+import { CityJourney } from '@/components/motion/CityJourney';
+import { RadarArt, SignalArt, SkylineArt, ScanArt } from '@/components/home/Art';
+import { CountUp, GrowBar } from '@/components/motion';
 
+import { SiteNav } from '@/components/SiteNav';
+import { Tr } from '@/lib/i18n';
 /**
  * FRL landing page — UI Phase 2.
  *
@@ -67,7 +71,6 @@ const CAPABILITIES = [
 ];
 
 export default function Home() {
-  const { t } = useLanguage();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -88,45 +91,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-canvas text-fg font-sans antialiased selection:bg-primary-soft">
       {/* ============================= NAV ============================= */}
-      <nav className="fixed top-0 w-full z-50 frl-glass-nav">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-16 py-2 sm:h-16 sm:py-0 flex flex-wrap items-center justify-between gap-y-2">
-          <Link href="/" className="flex items-center gap-2.5 shrink-0" aria-label="FRL home">
-            <span className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-white/[0.04]">
-              <ShieldCheck className="h-4 w-4 text-primary-hover" aria-hidden="true" />
-            </span>
-            <span className="flex flex-col leading-none">
-              <span className="text-[0.9375rem] font-semibold tracking-tight text-white">FRL</span>
-              <span className="mt-0.5 hidden text-[0.5625rem] uppercase tracking-[0.14em] text-fg-subtle sm:block">
-                Reputation Layer
-              </span>
-            </span>
-          </Link>
-
-          <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 sm:gap-x-7">
-            <LanguageToggle />
-            <Link
-              href="/search"
-              className="inline-flex h-9 items-center rounded-md px-1 text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover"
-            >
-              {t('nav.findCompany', 'Search Companies')}
-            </Link>
-            <Link
-              href="/principles"
-              className="hidden h-9 items-center rounded-md px-1 text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover sm:inline-flex"
-            >
-              {t('nav.principles', 'Principles')}
-            </Link>
-            <Link
-              href="/company/c1"
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-indigo-600 px-3 text-xs font-semibold text-white shadow-sm transition-[background-color,transform] duration-[var(--frl-dur-fast)] ease-[var(--frl-ease-standard)] hover:bg-indigo-500 active:translate-y-px"
-            >
-              Workspace
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       <main>
+        {/* ===================== CITY JOURNEY (scroll) ===================== */}
+        <CityJourney />
+
         {/* ============================ HERO ============================ */}
         <section className="relative overflow-hidden pt-28 pb-16 sm:pt-36 sm:pb-24 lg:pt-40 lg:pb-28">
           {/* Ambient depth. Decorative only — carries no data. */}
@@ -148,19 +118,14 @@ export default function Home() {
                     <span className="absolute inline-flex h-full w-full rounded-full bg-success opacity-60" />
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
                   </span>
-                  <span className="text-label text-fg-secondary">Financial Reputation Intelligence</span>
+                  <span className="text-label text-fg-secondary"><Tr s={"Financial Reputation Intelligence"} /></span>
                 </div>
 
                 <h1 className="frl-enter-2 mt-6 text-display text-white">
-                  Understand a business
-                  <br className="hidden sm:block" /> before you trust it.
-                </h1>
+                  <Tr s={"Understand a business"} /><br className="hidden sm:block" /> <Tr s={"before you trust it."} /></h1>
 
                 <p className="frl-enter-3 mt-6 max-w-xl text-body text-fg-muted sm:text-lg sm:leading-relaxed">
-                  FRL turns scattered financial records into a structured reputation
-                  signal — one you can inspect, question, and trace back to its source.
-                  Where evidence is missing, FRL says so rather than guessing.
-                </p>
+                  <Tr s={"FRL turns scattered financial records into a structured reputation signal — one you can inspect, question, and trace back to its source. Where evidence is missing, FRL says so rather than guessing."} /></p>
 
                 <div className="frl-enter-4 mt-9 flex flex-wrap items-center gap-3">
                   <Button
@@ -168,25 +133,22 @@ export default function Home() {
                     trailingIcon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
                     onClick={() => router.push('/search')}
                   >
-                    Search a company
-                  </Button>
+                    <Tr s={"Search a company"} /></Button>
                   <Button variant="outline" size="lg" onClick={() => router.push('/principles')}>
-                    How FRL works
-                  </Button>
+                    <Tr s={"How FRL works"} /></Button>
                 </div>
               </div>
 
               {/* ---- Conceptual intelligence visual ---- */}
               <div className="frl-enter-5 lg:col-span-5">
-                <div className="frl-glass relative overflow-hidden rounded-lg p-6 sm:p-7">
+                <div className="frl-glass frl-spot frl-scan relative overflow-hidden rounded-lg p-6 sm:p-7">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-label text-fg-subtle">Signal composition</p>
-                      <p className="mt-1.5 text-h4 text-white">Evidence to reputation</p>
+                      <p className="text-label text-fg-subtle"><Tr s={"Signal composition"} /></p>
+                      <p className="mt-1.5 text-h4 text-white"><Tr s={"Evidence to reputation"} /></p>
                     </div>
                     <Badge tone="demo" size="sm">
-                      Conceptual
-                    </Badge>
+                      <Tr s={"Conceptual"} /></Badge>
                   </div>
 
                   {/* Node chain — no values, because there are none to show. */}
@@ -203,7 +165,8 @@ export default function Home() {
                           )}
                           <span
                             aria-hidden="true"
-                            className="relative mt-1 h-3.5 w-3.5 shrink-0 rounded-full border border-primary/40 bg-canvas"
+                            className="frl-chain-dot relative mt-1 h-3.5 w-3.5 shrink-0 rounded-full border border-primary/40 bg-canvas"
+                            style={{ ['--i' as string]: i }}
                           >
                             <span className="absolute inset-[3px] rounded-full bg-primary-hover" />
                           </span>
@@ -217,10 +180,8 @@ export default function Home() {
                   </ol>
 
                   <p className="mt-6 border-t border-white/[0.07] pt-4 text-caption leading-relaxed text-fg-subtle">
-                    Structure illustration. FRL reports{' '}
-                    <span className="text-fg-muted">Insufficient Data</span> rather than a
-                    score when no supporting evidence exists.
-                  </p>
+                    <Tr s={"Structure illustration. FRL reports"} />{' '}
+                    <span className="text-fg-muted"><Tr s={"Insufficient Data"} /></span> <Tr s={"rather than a score when no supporting evidence exists."} /></p>
                 </div>
               </div>
             </div>
@@ -229,8 +190,7 @@ export default function Home() {
             <div className="frl-enter-6 mt-14 lg:mt-16">
               <form onSubmit={handleSearchSubmit} className="mx-auto max-w-3xl">
                 <label htmlFor="frl-company-search" className="sr-only">
-                  Search company by name or registration ID
-                </label>
+                  <Tr s={"Search company by name or registration ID"} /></label>
                 <div className="relative">
                   <div
                     aria-hidden="true"
@@ -252,19 +212,20 @@ export default function Home() {
                     trailingIcon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
                     className="absolute right-2 top-1/2 -translate-y-1/2"
                   >
-                    Search
-                    <span className="sr-only"> company</span>
+                    <Tr s={"Search"} /><span className="sr-only"> <Tr s={"company"} /></span>
                   </Button>
                 </div>
               </form>
 
               <div className="mx-auto mt-6 flex max-w-3xl flex-wrap items-center justify-center gap-2">
-                <span className="text-caption text-fg-subtle">Popular:</span>
-                {MOCK_COMPANIES.map((c) => (
+                <span className="text-caption text-fg-subtle"><Tr s={"Popular:"} /></span>
+                {MOCK_COMPANIES.map((c, ci) => (
                   <Link
                     key={c.id}
+                    data-fx="up"
+                    style={{ ['--i' as string]: ci }}
                     href={`/company/${c.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-pill border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-caption text-fg-secondary transition-[background-color,border-color,color] duration-[var(--frl-dur-fast)] hover:border-primary/35 hover:bg-white/[0.07] hover:text-slate-100"
+                    className="frl-chip inline-flex items-center gap-1.5 rounded-pill border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-caption text-fg-secondary transition-[background-color,border-color,color] duration-[var(--frl-dur-fast)] hover:border-primary/35 hover:bg-white/[0.07] hover:text-slate-100"
                   >
                     <span aria-hidden="true">{c.logo || '🏢'}</span>
                     <span>{c.name}</span>
@@ -284,8 +245,8 @@ export default function Home() {
                 { icon: Database, title: 'Provenance on every record', body: 'Source and retrieval state always shown.' },
                 { icon: Eye, title: 'Honest absence', body: 'Missing evidence reported, never imputed.' },
                 { icon: Activity, title: 'Explainable signals', body: 'Each dimension describes what it measured.' },
-              ].map(({ icon: Icon, title, body }) => (
-                <div key={title} className="flex items-start gap-3.5 px-1 py-6 lg:px-6">
+              ].map(({ icon: Icon, title, body }, ti) => (
+                <div key={title} data-fx="up" style={{ ['--i' as string]: ti }} className="frl-trust flex items-start gap-3.5 px-1 py-6 lg:px-6">
                   <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary-hover" aria-hidden="true" />
                   <div>
                     <p className="text-body-sm font-semibold text-slate-100">{title}</p>
@@ -301,15 +262,11 @@ export default function Home() {
         <Section>
           <Container width="full">
             <div className="grid items-start gap-12 lg:grid-cols-12 lg:gap-14">
-              <div className="lg:col-span-5">
-                <p className="text-label text-primary-hover">Product preview</p>
-                <h2 className="mt-4 text-h2 text-white">One company, fully accounted for.</h2>
+              <div className="lg:col-span-5" data-fx="left">
+                <p className="frl-eyebrow text-label text-primary-hover" data-fx="line"><Tr s={"Product preview"} /></p>
+                <h2 data-fx="up" className="mt-4 text-h2 text-white"><Tr s={"One company, fully accounted for."} /></h2>
                 <p className="mt-5 text-body leading-relaxed text-fg-muted">
-                  A FRL profile separates what a company looks like from what can
-                  actually be demonstrated about it. Identity, source, verification
-                  state and reputation dimensions sit side by side — including the
-                  dimensions that have nothing behind them yet.
-                </p>
+                  <Tr s={"A FRL profile separates what a company looks like from what can actually be demonstrated about it. Identity, source, verification state and reputation dimensions sit side by side — including the dimensions that have nothing behind them yet."} /></p>
                 <ul className="mt-7 space-y-3">
                   {[
                     'Identity resolved from a public registry record',
@@ -328,8 +285,8 @@ export default function Home() {
               </div>
 
               {/* Interface-style preview. Illustrative demo record. */}
-              <div className="lg:col-span-7">
-                <div className="frl-glass overflow-hidden rounded-lg">
+              <div className="lg:col-span-7" data-fx="scale">
+                <div className="frl-glass frl-spot frl-scan overflow-hidden rounded-lg">
                   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/[0.07] p-5 sm:p-6">
                     <div className="flex items-start gap-3.5">
                       <span
@@ -341,28 +298,29 @@ export default function Home() {
                       <div className="min-w-0">
                         <p className="truncate text-h4 text-white">{preview?.name}</p>
                         <p className="mt-1 text-caption text-fg-subtle">
-                          Reg: {preview?.registration_no ?? '—'}
+                          <Tr s={"Reg:"} />{' '}{preview?.registration_no ?? '—'}
                         </p>
                       </div>
                     </div>
                     <Badge tone="demo" size="sm" dot>
-                      Demo record
-                    </Badge>
+                      <Tr s={"Demo record"} /></Badge>
                   </div>
 
                   <div className="grid gap-5 p-5 sm:grid-cols-5 sm:p-6">
                     <div className="sm:col-span-2">
-                      <p className="text-label text-fg-subtle">Business reputation</p>
+                      <p className="text-label text-fg-subtle"><Tr s={"Business reputation"} /></p>
                       <p className="mt-2 text-2xl font-bold tabular text-white">
-                        {preview?.reputationScore ?? '—'}
+                        {typeof preview?.reputationScore === 'number' ? (
+                          <CountUp value={preview.reputationScore} whenInView />
+                        ) : (
+                          '—'
+                        )}
                         <span className="ml-1 text-sm font-medium text-fg-subtle">/ 1000</span>
                       </p>
                       <Badge tone="demo" size="sm" className="mt-2.5">
-                        Demo score — not real
-                      </Badge>
+                        <Tr s={"Demo score — not real"} /></Badge>
                       <p className="mt-3 text-caption leading-relaxed text-fg-subtle">
-                        Illustrative preview of a development demo record.
-                      </p>
+                        <Tr s={"Illustrative preview of a development demo record."} /></p>
                     </div>
 
                     <div className="grid gap-2.5 sm:col-span-3">
@@ -371,11 +329,14 @@ export default function Home() {
                         { label: 'Business Reliability', dim: previewDims?.businessReliability },
                         { label: 'Financial Stability', dim: previewDims?.financialStability },
                         { label: 'Transaction History', dim: previewDims?.transactionHistory },
-                      ].map(({ label, dim }) => (
+                      ].map(({ label, dim }, di) => (
                         <div
                           key={label}
-                          className="flex items-center justify-between gap-3 rounded-sm border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5"
+                          data-fx="up"
+                          style={{ ['--i' as string]: di + 2 }}
+                          className="frl-row rounded-sm border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5"
                         >
+                          <div className="flex items-center justify-between gap-3">
                           <span className="truncate text-caption text-fg-secondary">{label}</span>
                           {dim?.isSufficient ? (
                             <span className="shrink-0 text-caption font-semibold tabular text-success">
@@ -383,8 +344,13 @@ export default function Home() {
                             </span>
                           ) : (
                             <Badge tone="insufficient" size="sm">
-                              Insufficient Data
-                            </Badge>
+                              <Tr s={"Insufficient Data"} /></Badge>
+                          )}
+                          </div>
+                          {dim?.isSufficient && typeof dim.score === 'number' && (
+                            <div className="mt-2 h-1 w-full overflow-hidden bg-white/[0.07]" aria-hidden="true">
+                              <GrowBar percent={(dim.score / 1000) * 100} className="bg-success" />
+                            </div>
                           )}
                         </div>
                       ))}
@@ -400,24 +366,61 @@ export default function Home() {
         <Section className="border-t border-white/[0.06]">
           <Container width="full">
             <div className="max-w-2xl">
-              <p className="text-label text-primary-hover">Capabilities</p>
-              <h2 className="mt-4 text-h2 text-white">Built for reading a business carefully.</h2>
+              <p className="frl-eyebrow text-label text-primary-hover" data-fx="line"><Tr s={"Capabilities"} /></p>
+              <h2 data-fx="up" className="mt-4 text-h2 text-white"><Tr s={"Built for reading a business carefully."} /></h2>
               <p className="mt-5 text-body leading-relaxed text-fg-muted">
-                Four capabilities, each answering a different question about a
-                counterparty — and each declining to answer when the record is not there.
-              </p>
+                <Tr s={"Four capabilities, each answering a different question about a counterparty — and each declining to answer when the record is not there."} /></p>
             </div>
 
-            <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {CAPABILITIES.map(({ icon: Icon, title, body }) => (
-                <Card key={title} padding="lg" className="group h-full transition-colors duration-[var(--frl-dur-normal)] hover:border-white/[0.18]">
-                  <span className="grid h-9 w-9 place-items-center rounded-md border border-white/[0.08] bg-white/[0.04]">
-                    <Icon className="h-4 w-4 text-primary-hover" aria-hidden="true" />
-                  </span>
-                  <h3 className="mt-5 text-h4 text-white">{title}</h3>
-                  <p className="mt-2.5 text-body-sm leading-relaxed text-fg-subtle">{body}</p>
-                </Card>
-              ))}
+            <div className="mt-12 grid grid-cols-1 gap-5 lg:grid-cols-12">
+              {CAPABILITIES.map(({ icon: Icon, title, body }, ci) => {
+                const span = [
+                  'lg:col-span-7 lg:row-span-2',
+                  'lg:col-span-5',
+                  'lg:col-span-5',
+                  'lg:col-span-12',
+                ][ci];
+                const art = [<RadarArt key="a" />, <SignalArt key="b" />, <SkylineArt key="c" />, <ScanArt key="d" />][ci];
+                const wide = ci === 3;
+                return (
+                  <div
+                    key={title}
+                    data-fx="card"
+                    style={{ ['--i' as string]: ci }}
+                    className={`frl-bevel-wrap frl-hoverlift ${span}`}
+                  >
+                    <div className="frl-bevel h-full">
+                      <div
+                        className={`frl-bevel-in frl-spot flex h-full gap-6 p-6 sm:p-8 ${
+                          wide ? 'flex-col md:flex-row md:items-center' : 'flex-col'
+                        }`}
+                      >
+                        <span aria-hidden="true" className="frl-ghost">
+                          0{ci + 1}
+                        </span>
+                        <div className={wide ? 'md:w-5/12' : ''}>
+                          <span className="frl-icon grid h-10 w-10 place-items-center rounded-md border border-white/[0.1] bg-white/[0.04]">
+                            <Icon className="h-4 w-4 text-primary-hover" aria-hidden="true" />
+                          </span>
+                          <h3 className="mt-5 text-h3 text-white">{title}</h3>
+                          <p className="mt-3 max-w-md text-body-sm leading-relaxed text-fg-muted">{body}</p>
+                        </div>
+                        <div
+                          className={
+                            ci === 0
+                              ? 'mx-auto mt-2 aspect-square w-full max-w-[19rem] flex-1 lg:max-w-[22rem]'
+                              : wide
+                                ? 'h-24 w-full md:h-28 md:w-7/12'
+                                : 'mt-auto h-28 w-full'
+                          }
+                        >
+                          {art}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Container>
         </Section>
@@ -426,27 +429,48 @@ export default function Home() {
         <Section className="border-t border-white/[0.06] bg-white/[0.015]">
           <Container width="full">
             <div className="max-w-2xl">
-              <p className="text-label text-primary-hover">Method</p>
-              <h2 className="mt-4 text-h2 text-white">Evidence, in the order it is used.</h2>
+              <p className="frl-eyebrow text-label text-primary-hover" data-fx="line"><Tr s={"Method"} /></p>
+              <h2 data-fx="up" className="mt-4 text-h2 text-white"><Tr s={"Evidence, in the order it is used."} /></h2>
               <p className="mt-5 text-body leading-relaxed text-fg-muted">
-                A reputation signal is never the first step. It is the last — and it can
-                only be reached if every step before it actually had something to work with.
-              </p>
+                <Tr s={"A reputation signal is never the first step. It is the last — and it can only be reached if every step before it actually had something to work with."} /></p>
             </div>
 
-            <ol className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+            <ol className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4 lg:items-start lg:gap-6">
               {CHAIN.map((step, i) => (
-                <li key={step.key}>
-                  <Card padding="md" className="h-full">
-                    <div className="flex items-center justify-between">
-                      <span className="text-label tabular text-primary-hover">
+                <li
+                  key={step.key}
+                  data-fx="card"
+                  style={{ ['--i' as string]: i }}
+                  className={`frl-bevel-wrap frl-hoverlift relative ${['lg:mt-24', 'lg:mt-16', 'lg:mt-8', 'lg:mt-0'][i]}`}
+                >
+                  <div className={`frl-bevel ${i === 3 ? 'frl-bevel-hot' : ''}`}>
+                    <div className={`frl-bevel-in frl-spot p-6 ${i === 3 ? 'frl-bevel-in-hot' : ''}`}>
+                      <span aria-hidden="true" className="frl-ghost">
                         {String(i + 1).padStart(2, '0')}
                       </span>
-                      <Award className="h-4 w-4 text-white/15" aria-hidden="true" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-label tabular text-primary-hover">
+                          {String(i + 1).padStart(2, '0')}
+                        </span>
+                        <Award className="frl-award h-4 w-4 text-white/25" aria-hidden="true" />
+                      </div>
+                      <h3 className="mt-6 text-h3 text-white">{step.label}</h3>
+                      <p className="mt-2 text-body-sm leading-relaxed text-fg-muted">{step.note}</p>
+                      <div className="mt-6 flex gap-1.5" aria-hidden="true">
+                        {[0, 1, 2, 3].map((k) => (
+                          <span
+                            key={k}
+                            className={`h-1 flex-1 ${k <= i ? 'bg-primary' : 'bg-white/[0.1]'}`}
+                          />
+                        ))}
+                      </div>
                     </div>
-                    <h3 className="mt-4 text-h4 text-white">{step.label}</h3>
-                    <p className="mt-2 text-body-sm leading-relaxed text-fg-subtle">{step.note}</p>
-                  </Card>
+                  </div>
+                  {i < 3 && (
+                    <span aria-hidden="true" className="frl-chev hidden lg:block">
+                      ›
+                    </span>
+                  )}
                 </li>
               ))}
             </ol>
@@ -454,9 +478,7 @@ export default function Home() {
             <p className="mt-8 flex items-start gap-2.5 text-caption leading-relaxed text-fg-subtle">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span>
-                If step one returns nothing, FRL stops there and reports Insufficient
-                Data. It does not estimate a score to fill the gap.
-              </span>
+                <Tr s={"If step one returns nothing, FRL stops there and reports Insufficient Data. It does not estimate a score to fill the gap."} /></span>
             </p>
           </Container>
         </Section>
@@ -464,25 +486,21 @@ export default function Home() {
         {/* ========================== FINAL CTA ========================== */}
         <Section className="border-t border-white/[0.06]">
           <Container width="read">
-            <div className="frl-glass overflow-hidden rounded-lg px-6 py-12 text-center sm:px-10 sm:py-16">
-              <h2 className="text-h1 text-white">Start with a company.</h2>
+            <div className="frl-bevel-wrap frl-hoverlift" data-fx="scale"><div className="frl-bevel"><div className="frl-bevel-in frl-cta frl-spot px-6 py-12 text-center sm:px-10 sm:py-16">
+              <h2 data-fx="up" className="text-h1 text-white"><Tr s={"Start with a company."} /></h2>
               <p className="mx-auto mt-5 max-w-lg text-body leading-relaxed text-fg-muted">
-                Look up a business by name or registration number and see exactly
-                what FRL holds — and exactly what it does not.
-              </p>
+                <Tr s={"Look up a business by name or registration number and see exactly what FRL holds — and exactly what it does not."} /></p>
               <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
                 <Button
                   size="lg"
                   trailingIcon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
                   onClick={() => router.push('/search')}
                 >
-                  Search companies
-                </Button>
+                  <Tr s={"Search companies"} /></Button>
                 <Button variant="outline" size="lg" onClick={() => router.push('/principles')}>
-                  Read the principles
-                </Button>
+                  <Tr s={"Read the principles"} /></Button>
               </div>
-            </div>
+            </div></div></div>
           </Container>
         </Section>
       </main>
@@ -496,36 +514,36 @@ export default function Home() {
                 <span className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-white/[0.04]">
                   <ShieldCheck className="h-4 w-4 text-primary-hover" aria-hidden="true" />
                 </span>
-                <span className="text-[0.9375rem] font-semibold tracking-tight text-white">FRL</span>
+                <span className="text-[0.9375rem] font-semibold tracking-tight text-white"><Tr s={"FRL"} /></span>
               </div>
               <p className="mt-4 text-caption leading-relaxed text-fg-subtle">
-                Financial Reputation Layer. A registry record is not an FRL
-                verification, and an absence of evidence is reported as such.
-              </p>
+                <Tr s={"Financial Reputation Layer. A registry record is not an FRL verification, and an absence of evidence is reported as such."} /></p>
             </div>
 
             <nav aria-label="Footer" className="flex flex-wrap gap-x-10 gap-y-4">
               <div>
-                <p className="text-label text-fg-subtle">Product</p>
+                <p className="text-label text-fg-subtle"><Tr s={"Product"} /></p>
                 <ul className="mt-3 space-y-2.5">
                   <li>
                     <Link href="/search" className="inline-flex min-h-6 items-center rounded-sm text-body-sm text-fg-secondary transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover">
-                      Search companies
-                    </Link>
+                      <Tr s={"Search companies"} /></Link>
                   </li>
                   <li>
                     <Link href="/company/c1" className="inline-flex min-h-6 items-center rounded-sm text-body-sm text-fg-secondary transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover">
-                      My company profile
-                    </Link>
+                      <Tr s={"My company profile"} /></Link>
                   </li>
                 </ul>
               </div>
               <div>
-                <p className="text-label text-fg-subtle">About</p>
+                <p className="text-label text-fg-subtle"><Tr s={"About"} /></p>
                 <ul className="mt-3 space-y-2.5">
                   <li>
                     <Link href="/principles" className="inline-flex min-h-6 items-center rounded-sm text-body-sm text-fg-secondary transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover">
-                      Principles
+                      <Tr s={"Principles"} /></Link>
+                  </li>
+                  <li>
+                    <Link href="/assessment" className="inline-flex min-h-6 items-center rounded-sm text-body-sm text-fg-secondary transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover">
+                      <Tr s="How we assess" />
                     </Link>
                   </li>
                 </ul>
@@ -534,9 +552,7 @@ export default function Home() {
           </div>
 
           <p className="border-t border-white/[0.06] py-6 text-caption text-fg-subtle">
-            Demo records shown in this preview are development sample data and are never
-            presented as verified companies.
-          </p>
+            <Tr s={"Demo records shown in this preview are development sample data and are never presented as verified companies."} /></p>
         </Container>
       </footer>
     </div>

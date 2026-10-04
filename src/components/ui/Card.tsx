@@ -1,28 +1,29 @@
 import type { HTMLAttributes } from 'react';
 
 /**
- * FRL Card / Surface — UI Phase 1 primitive.
+ * FRL Card / Surface.
  *
- * A Card is a group of related information sitting on one plane. It is not a
- * styling upgrade for everything: if the content is not a meaningful group, it
- * does not belong in a Card.
+ * A Card is a group of related information on one plane. It is drawn as a
+ * cut-corner panel (two chamfered corners, a red-to-grey edge, a light that
+ * follows the pointer) and rises into view once as it is scrolled to.
  *
- * `tone` chooses the plane; `interactive` adds hover/press feedback for cards
- * that genuinely act as a control.
+ * Layout classes passed in `className` (margins, width, height, grid placement,
+ * positioning) are applied to the outer frame so the card still sits where its
+ * parent puts it; every other class (flex, gap, text, space-y …) is applied to
+ * the inner panel where the content lives.
+ *
+ * `tone` chooses the plane; `interactive` adds a lift for cards that genuinely
+ * act as a control.
  */
 
 export type CardTone = 'base' | 'elevated' | 'muted' | 'glass';
 export type CardPadding = 'none' | 'sm' | 'md' | 'lg';
 
 const TONES: Record<CardTone, string> = {
-  base: 'bg-slate-900 border-white/10 shadow-[var(--shadow-surface)]',
-  elevated: 'bg-slate-800 border-white/10 shadow-[var(--shadow-elevated)]',
-  muted: 'bg-slate-900/40 border-white/[0.06]',
-  // Translucency is a privilege, not a default: it belongs on chrome and
-  // selected panels, never on every grouped block.
-  glass:
-    'bg-slate-900/70 border-white/10 shadow-[var(--shadow-float)] ' +
-    'backdrop-blur-xl backdrop-saturate-150',
+  base: '',
+  elevated: 'frl-in-elevated',
+  muted: 'frl-in-muted',
+  glass: '',
 };
 
 const PADDINGS: Record<CardPadding, string> = {
@@ -32,12 +33,35 @@ const PADDINGS: Record<CardPadding, string> = {
   lg: 'p-8',
 };
 
+const CUTS: Record<CardPadding, string> = {
+  none: '26px',
+  sm: '14px',
+  md: '22px',
+  lg: '28px',
+};
+
+// Classes that decide where the card sits (outer frame). Anything else goes inside.
+const OUTER =
+  /^(?:-?m[trblxy]?-|w-|h-|min-w-|min-h-|max-w-|max-h-|col-|row-|self-|justify-self-|order-|grow|shrink|flex-1$|basis-|z-|sticky$|top-|bottom-|left-|right-|inset-|absolute$|relative$|hidden$|block$|lg:|md:|sm:|xl:)/;
+
+function splitClasses(className: string) {
+  const outer: string[] = [];
+  const inner: string[] = [];
+  for (const token of className.split(/\s+/).filter(Boolean)) {
+    const base = token.slice(token.lastIndexOf(':') + 1);
+    // responsive layout tokens (e.g. lg:col-span-2) have a layout base; others (md:p-8) do not
+    const isLayout = OUTER.test(base) && !/^(?:p[trblxy]?-|gap-|space-|text-|font-|flex$|grid$|items-|justify-(?!self))/.test(base);
+    (isLayout ? outer : inner).push(token);
+  }
+  return { outer: outer.join(' '), inner: inner.join(' ') };
+}
+
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   tone?: CardTone;
   padding?: CardPadding;
   /**
-   * Adds hover/press feedback. Only set this when the card is genuinely
-   * clickable — hover feedback on static content misleads.
+   * Adds a lift on hover. Only set this when the card is genuinely clickable —
+   * hover feedback on static content misleads.
    */
   interactive?: boolean;
   /** Visually selected (a tab, a chosen panel). */
@@ -50,32 +74,36 @@ export function Card({
   interactive = false,
   selected = false,
   className = '',
+  style,
   children,
   ...rest
 }: CardProps) {
+  const { outer, inner } = splitClasses(className);
   return (
     <div
+      data-fx="card"
       data-selected={selected || undefined}
-      className={[
-        'rounded-lg border',
-        'transition-[background-color,border-color,box-shadow,transform] duration-[var(--frl-dur-normal)]',
-        'ease-[var(--frl-ease-standard)]',
-        TONES[tone],
-        PADDINGS[padding],
-        selected ? 'border-indigo-400/50 ring-1 ring-indigo-400/20' : '',
-        interactive
-          ? 'cursor-pointer hover:border-indigo-400/40 hover:shadow-[var(--shadow-elevated)] ' +
-            'active:translate-y-px ' +
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover ' +
-            'focus-visible:ring-offset-2 focus-visible:ring-offset-canvas'
-          : '',
-        className,
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      {...rest}
+      className={['frl-bevel-wrap', interactive ? 'frl-hoverlift' : '', outer].filter(Boolean).join(' ')}
+      style={{ ['--bevel' as string]: CUTS[padding], ...style }}
     >
-      {children}
+      <div className="frl-bevel h-full">
+        <div
+          className={[
+            'frl-bevel-in frl-spot h-full',
+            TONES[tone],
+            PADDINGS[padding],
+            interactive
+              ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover'
+              : '',
+            inner,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          {...rest}
+        >
+          {children}
+        </div>
+      </div>
     </div>
   );
 }

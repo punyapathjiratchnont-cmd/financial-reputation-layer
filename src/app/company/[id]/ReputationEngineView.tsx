@@ -76,6 +76,8 @@ import { ScoreHistoryChart } from './ScoreHistoryChart';
 import { FinancialInputModal } from './FinancialInputModal';
 import { useLanguage } from '@/lib/i18n';
 
+import { RadarArt } from '@/components/home/Art';
+import { Tr } from '@/lib/i18n';
 interface ReputationEngineViewProps {
   userId?: string;
   /**
@@ -267,12 +269,12 @@ const DISCLOSURE_LABEL: Record<string, string> = {
   score_and_factors: 'Score, level and factors',
 };
 
-const WORKSPACE_TABS: Array<{ id: MainNavTab; label: string; icon: LucideIcon }> = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'my_reputation', label: 'My Reputation', icon: Award },
-  { id: 'verify', label: 'Verify Company', icon: ShieldCheck },
-  { id: 'proofs', label: 'Proofs', icon: Lock },
-  { id: 'reputation_data', label: 'Reputation Data', icon: SlidersHorizontal },
+const WORKSPACE_TABS: Array<{ id: MainNavTab; label: string; icon: LucideIcon; description: string }> = [
+  { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, description: 'Your score and what to do next.' },
+  { id: 'my_reputation', label: 'My score', icon: Award, description: 'What your score is made of and how it has changed.' },
+  { id: 'verify', label: 'Check a company', icon: ShieldCheck, description: 'Look up another company’s shared score.' },
+  { id: 'proofs', label: 'Share my score', icon: Lock, description: 'Create and manage links you give to other businesses.' },
+  { id: 'reputation_data', label: 'My evidence', icon: SlidersHorizontal, description: 'The financial records behind your score. Add or review them here.' },
 ];
 
 export function ReputationEngineView({
@@ -706,16 +708,16 @@ export function ReputationEngineView({
   const getLevelBadge = (level: ReputationLevel | string | null) => {
     switch (level) {
       case 'Excellent':
-        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">EXCELLENT</span>;
+        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"><Tr s={"EXCELLENT"} /></span>;
       case 'Good':
-        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">GOOD</span>;
+        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"><Tr s={"GOOD"} /></span>;
       case 'Fair':
-        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30">FAIR</span>;
+        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30"><Tr s={"FAIR"} /></span>;
       case 'Low':
-        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/30">LOW</span>;
+        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/30"><Tr s={"LOW"} /></span>;
       default:
         // No level was produced, so none is shown. Absence is never 'Low'.
-        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-500/20 text-slate-300 border border-slate-500/30">INSUFFICIENT DATA</span>;
+        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-500/20 text-slate-300 border border-slate-500/30"><Tr s={"INSUFFICIENT DATA"} /></span>;
     }
   };
 
@@ -802,30 +804,21 @@ export function ReputationEngineView({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="primary" size="sm" dot>
-                Owner Workspace
-              </Badge>
+                <Tr s={"Owner tools"} /></Badge>
               <Badge tone={isDemo ? 'demo' : 'insufficient'} size="sm">
                 {isDemo ? 'Demo Data' : workspaceVerificationLabel}
               </Badge>
             </div>
-            <h2 className="mt-3 text-h2 text-white">{company?.name ?? 'Owner Workspace'}</h2>
+            {/* Page title for this view. The workspace and the public profile are
+                two states of one route, so exactly one of them renders an h1. */}
+            <h1 className="mt-3 text-h2 text-white">{company?.name ?? 'Owner Workspace'}</h1>
             <p className="mt-2 max-w-2xl text-body-sm text-fg-muted">
-              Your private workspace. Financial evidence submitted here is read by the FRL reputation
-              engine, which produces a score only when every required factor has evidence. FRL
-              publishes nothing it has not calculated.
-            </p>
+              <Tr s={"Only you see this page. FRL gives you a score once your records are complete, and shows nothing it has not calculated."} /></p>
           </div>
 
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
             <Button onClick={() => setIsModalOpen(true)} icon={<PlusCircle className="h-4 w-4" />}>
               {realHasData ? 'Update Financial Evidence' : 'Add Financial Evidence'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab('reputation_data')}
-              icon={<Layers className="h-4 w-4" />}
-            >
-              Review Evidence
             </Button>
             {onViewPublicProfile && (
               <Button
@@ -833,8 +826,7 @@ export function ReputationEngineView({
                 onClick={onViewPublicProfile}
                 icon={<Eye className="h-4 w-4" />}
               >
-                View Public Profile
-              </Button>
+                <Tr s={"See public profile"} /></Button>
             )}
           </div>
         </div>
@@ -849,15 +841,17 @@ export function ReputationEngineView({
             const active = activeTab === tab.id;
             const tabLabel =
               tab.id === 'proofs'
-                ? `Proofs (${proofs.filter((p) => p.status === 'active').length})`
+                ? `Share my score (${proofs.filter((p) => p.status === 'active').length})`
                 : tab.label;
 
             return (
+              // These switch a panel inside the same route, so "current item in a
+              // set" is the accurate aria-current token — not "current page".
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                aria-current={active ? 'page' : undefined}
+                aria-current={active ? 'true' : undefined}
                 className={`inline-flex h-11 items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition-[background-color,border-color,color] duration-[var(--frl-dur-fast)] ease-[var(--frl-ease-standard)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
                   active
                     ? 'border-white/[0.08] bg-white/[0.08] text-white'
@@ -890,8 +884,7 @@ export function ReputationEngineView({
                 }`}
               >
                 <UserCheck className="h-3 w-3" aria-hidden="true" />
-                Real Data
-              </button>
+                <Tr s={"Real Data"} /></button>
               <button
                 type="button"
                 onClick={() => setDataMode('demo')}
@@ -903,13 +896,12 @@ export function ReputationEngineView({
                 }`}
               >
                 <Sliders className="h-3 w-3" aria-hidden="true" />
-                Demo Mode
-              </button>
+                <Tr s={"Demo Mode"} /></button>
             </div>
 
             {isDemo && (
               <label className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
-                <span className="text-caption text-fg-subtle">Profile</span>
+                <span className="text-caption text-fg-subtle"><Tr s={"Profile"} /></span>
                 <select
                   value={selectedProfileKey}
                   onChange={(e) => setSelectedProfileKey(e.target.value)}
@@ -927,19 +919,29 @@ export function ReputationEngineView({
         </div>
       </nav>
 
+      {/* Orientation: which tab this is and what it is for. */}
+      <div>
+        <p className="text-label text-fg-subtle"><Tr s={"Owner tools"} /></p>
+        <p className="mt-1 text-body-sm text-fg-muted">
+          <strong className="font-semibold text-white">
+            {WORKSPACE_TABS.find((t) => t.id === activeTab)?.label}
+          </strong>
+          {' — '}
+          {WORKSPACE_TABS.find((t) => t.id === activeTab)?.description}
+        </p>
+      </div>
+
       {/* DEMO MODE NOTICE — a sample profile is never presented as evidence. */}
       {isDemo && (
         <div className="flex flex-col gap-3 rounded-md border border-demo-line bg-demo-soft p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-2.5 text-body-sm leading-relaxed text-amber-200/90">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-demo" aria-hidden="true" />
             <span>
-              <strong className="text-amber-300">Demo Mode.</strong> Showing the built-in sample
-              profile{' '}
+              <strong className="text-amber-300"><Tr s={"Demo Mode."} /></strong> <Tr s={"Showing the built-in sample profile"} />{' '}
               <code className="rounded bg-black/40 px-1.5 py-0.5 font-mono text-amber-200">
                 {selectedProfileKey}
               </code>
-              . Nothing here is real evidence, and no score on this screen is a real reputation.
-            </span>
+              <Tr s={". Nothing here is real evidence, and no score on this screen is a real reputation."} /></span>
           </div>
           <Button
             variant="outline"
@@ -947,45 +949,133 @@ export function ReputationEngineView({
             onClick={() => setDataMode('real')}
             icon={<UserCheck className="h-3.5 w-3.5" />}
           >
-            Switch to Real Data
-          </Button>
+            <Tr s={"Switch to Real Data"} /></Button>
         </div>
       )}
 
       {/* ========================================================================= */}
       {/* TAB 1: DASHBOARD (Sections 4, 5, 6)                                       */}
       {/* ========================================================================= */}
+      {activeTab === 'dashboard' && scored && (
+        <div>
+          {/* SECTION 4: MY BUSINESS REPUTATION HERO CARD */}
+          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/10 pb-6">
+              <div>
+                <span className="text-xs font-mono text-indigo-400 uppercase tracking-widest font-semibold flex items-center gap-1.5 mb-1">
+                  <ShieldCheck className="w-4 h-4" />
+                  <Tr s={"B2B Business Reputation Signal"} /></span>
+                <h2 className="text-3xl font-extrabold text-slate-100"><Tr s={"My Business Reputation"} /></h2>
+              </div>
+
+              {/* Primary Actions (Section 5) */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={() => setActiveTab('my_reputation')}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2"
+                >
+                  <Award className="w-4 h-4" />
+                  <Tr s={"View My Reputation"} /></button>
+
+                <button
+                  onClick={() => setActiveTab('verify')}
+                  className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 border border-white/10 text-xs font-bold transition-all flex items-center gap-2"
+                >
+                  <Search className="w-4 h-4 text-indigo-400" />
+                  <Tr s={"Verify a Company"} /></button>
+
+                <button
+                  onClick={handleGenerateProof}
+                  disabled={generatingProof}
+                  className="px-4 py-2.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 text-xs font-semibold transition-all flex items-center gap-1.5"
+                >
+                  {generatingProof ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
+                  <Tr s={"Share Reputation"} /></button>
+              </div>
+            </div>
+
+            {/* Central Score & 4 Major B2B Dimensions */}
+            <div className="grid md:grid-cols-3 gap-8 items-center">
+              {/* Central Score Display */}
+              <div className="text-center md:text-left space-y-2 p-6 rounded-2xl bg-black/30 border border-white/5">
+                <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block">
+                  {isDemo ? 'Demo Reputation Score (not real)' : 'Official FRL Score'}
+                </span>
+                <div className="flex items-baseline justify-center md:justify-start gap-3">
+                  <span className="text-6xl font-black tracking-tight text-white">{scored.score}</span>
+                  <span className="text-sm text-slate-400 font-medium">/ 850</span>
+                </div>
+                <div className="pt-1">{getLevelBadge(scored.level)}</div>
+                <p className="text-[11px] text-slate-400 pt-2 border-t border-white/5">
+                  {isDemo
+                    ? 'Sample data from a demo profile. This is not a real FRL reputation.'
+                    : 'Calculated engine-side from verified financial behavior.'}
+                </p>
+              </div>
+
+              {/* 4 Major Reputation Dimensions Grid (Section 4 & 10) */}
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-xs text-slate-400 font-medium block"><Tr s={"Payment Reliability"} /></span>
+                  <strong className="text-lg font-extrabold text-emerald-400 block">{b2bDimensions.paymentReliability}</strong>
+                  <span className="text-[10px] text-slate-500 block"><Tr s={"On-time obligation performance"} /></span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-xs text-slate-400 font-medium block"><Tr s={"Business Reliability"} /></span>
+                  <strong className="text-lg font-extrabold text-indigo-400 block">{b2bDimensions.businessReliability}</strong>
+                  <span className="text-[10px] text-slate-500 block"><Tr s={"Operational transaction signals"} /></span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-xs text-slate-400 font-medium block"><Tr s={"Financial Stability"} /></span>
+                  <strong className="text-lg font-extrabold text-slate-200 block">{b2bDimensions.financialStability}</strong>
+                  <span className="text-[10px] text-slate-500 block"><Tr s={"Consistency & liquidity stability"} /></span>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-xs text-slate-400 font-medium block"><Tr s={"Transaction History"} /></span>
+                  <strong className="text-lg font-extrabold text-amber-400 block">{b2bDimensions.transactionHistory}</strong>
+                  <span className="text-[10px] text-slate-500 block"><Tr s={"Historical activity duration"} /></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Neutral Disclaimer (Section 10) */}
+            <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 text-xs text-slate-400 flex items-start gap-3 leading-relaxed">
+              <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <div>
+                <Tr s={"Your Business Reputation is a signal generated from financial and transaction behavior available to FRL. It is intended to support business decisions and does not guarantee future business performance."} /></div>
+            </div>
+          </div>
+        </div>
+      )}
+
 {activeTab === 'dashboard' && (
         <div className="space-y-6">
           {/* -------------------------- REPUTATION READINESS -------------------------- */}
           <Card tone="base" padding="md">
             <CardHeader>
               <div>
-                <CardTitle>Reputation readiness</CardTitle>
+                <CardTitle><Tr s={"Is your score ready?"} /></CardTitle>
                 <CardDescription>
-                  This is the engine&apos;s own assessment of your submitted evidence. FRL does not
-                  compute a completion percentage, so none is shown here.
-                </CardDescription>
+                  <Tr s={"This is the engine's own assessment of your submitted evidence. FRL does not compute a completion percentage, so none is shown here."} /></CardDescription>
               </div>
               {readiness.kind === 'loading' && (
                 <Badge tone="neutral" size="sm">
-                  Checking
-                </Badge>
+                  <Tr s={"Checking"} /></Badge>
               )}
               {readiness.kind === 'scored' && (
                 <Badge tone="success" size="sm" dot>
-                  Score available
-                </Badge>
+                  <Tr s={"Score available"} /></Badge>
               )}
               {(readiness.kind === 'none' || readiness.kind === 'insufficient') && (
                 <Badge tone="insufficient" size="md" dot>
-                  Insufficient Data
-                </Badge>
+                  <Tr s={"Insufficient Data"} /></Badge>
               )}
               {readiness.kind === 'demo' && (
                 <Badge tone="demo" size="md">
-                  Demo Data — Not A Real Score
-                </Badge>
+                  <Tr s={"Demo Data — Not A Real Score"} /></Badge>
               )}
             </CardHeader>
 
@@ -996,34 +1086,31 @@ export function ReputationEngineView({
                     className="h-4 w-4 animate-spin motion-reduce:animate-none"
                     aria-hidden="true"
                   />
-                  Checking the evidence you have submitted.
-                </p>
+                  <Tr s={"Checking the evidence you have submitted."} /></p>
               )}
 
               {readiness.kind === 'demo' && (
                 <div className="rounded-md border border-demo-line bg-demo-soft p-4">
                   <p className="text-body-sm leading-relaxed text-amber-200/90">
-                    You are viewing a built-in sample profile. FRL has verified nothing here and no
-                    score on this screen reflects a real business. Switch to Real Data to work with
-                    your own submitted evidence.
-                  </p>
+                    <Tr s={"You are viewing a built-in sample profile. FRL has verified nothing here and no score on this screen reflects a real business. Switch to Real Data to work with your own submitted evidence."} /></p>
                 </div>
               )}
 
               {readiness.kind === 'none' && (
-                <div className="space-y-4">
+                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-4 md:max-w-xl">
                   <p className="text-body text-fg-secondary">{readiness.reason}</p>
                   <p className="max-w-2xl text-body-sm text-fg-muted">
-                    FRL cannot calculate a reputation score until sufficient evidence exists. Submit
-                    your financial evidence to begin. FRL will then name the exact factors that are
-                    still missing rather than estimating how far along you are.
-                  </p>
+                    <Tr s={"FRL cannot calculate a reputation score until sufficient evidence exists. Submit your financial evidence to begin. FRL will then name the exact factors that are still missing rather than estimating how far along you are."} /></p>
                   <Button
                     onClick={() => setIsModalOpen(true)}
                     icon={<PlusCircle className="h-4 w-4" />}
                   >
-                    Add Financial Evidence
-                  </Button>
+                    <Tr s={"Add Financial Evidence"} /></Button>
+                </div>
+                <div aria-hidden="true" className="mx-auto h-40 w-40 shrink-0 md:mx-0 md:h-48 md:w-48">
+                  <RadarArt />
+                </div>
                 </div>
               )}
 
@@ -1032,7 +1119,7 @@ export function ReputationEngineView({
                   <p className="max-w-3xl text-body text-fg-secondary">{readiness.reason}</p>
                   {readiness.missing.length > 0 && (
                     <div className="rounded-md border border-white/[0.08] bg-white/[0.02] p-4">
-                      <h3 className="text-label text-fg-subtle">Factors without evidence</h3>
+                      <h3 className="text-label text-fg-subtle"><Tr s={"Factors without evidence"} /></h3>
                       <ul className="mt-2.5 flex flex-wrap gap-2">
                         {readiness.missing.map((name) => (
                           <li key={name}>
@@ -1045,15 +1132,12 @@ export function ReputationEngineView({
                     </div>
                   )}
                   <p className="max-w-2xl text-body-sm text-fg-muted">
-                    FRL will not publish a reputation score until every required factor has evidence.
-                    Complete the evidence below and the engine recalculates.
-                  </p>
+                    <Tr s={"FRL will not publish a reputation score until every required factor has evidence. Complete the evidence below and the engine recalculates."} /></p>
                   <Button
                     onClick={() => setIsModalOpen(true)}
                     icon={<PlusCircle className="h-4 w-4" />}
                   >
-                    Complete Financial Evidence
-                  </Button>
+                    <Tr s={"Complete Financial Evidence"} /></Button>
                 </div>
               )}
 
@@ -1066,17 +1150,14 @@ export function ReputationEngineView({
                       {getLevelBadge(readiness.result.level)}
                     </div>
                     <p className="mt-2 max-w-xl text-body-sm text-fg-muted">
-                      Calculated by the FRL reputation engine from the evidence you submitted. FRL has
-                      not independently audited that evidence; it reflects what you have declared.
-                    </p>
+                      <Tr s={"Calculated by the FRL reputation engine from the evidence you submitted. FRL has not independently audited that evidence; it reflects what you have declared."} /></p>
                   </div>
                   <Button
                     variant="secondary"
                     onClick={() => setActiveTab('my_reputation')}
                     icon={<Award className="h-4 w-4" />}
                   >
-                    View Reputation Detail
-                  </Button>
+                    <Tr s={"View Reputation Detail"} /></Button>
                 </div>
               )}
             </CardContent>
@@ -1086,11 +1167,9 @@ export function ReputationEngineView({
           <Card tone="base" padding="md">
             <CardHeader>
               <div>
-                <CardTitle>Financial evidence</CardTitle>
+                <CardTitle><Tr s={"Financial evidence"} /></CardTitle>
                 <CardDescription>
-                  What is available, what is missing, and what each group is used for. A field shown
-                  as — was not reported. It is not a zero.
-                </CardDescription>
+                  <Tr s={"What is available, what is missing, and what each group is used for. A field shown as — was not reported. It is not a zero."} /></CardDescription>
               </div>
               <Badge tone={isDemo ? 'demo' : 'neutral'} size="sm">
                 {isDemo ? 'Sample profile' : 'Your submission'}
@@ -1099,22 +1178,22 @@ export function ReputationEngineView({
 
             <CardContent className="mt-5">
               <p className="text-body-sm text-fg-muted">
-                Evidence groups with submitted data:{' '}
+                <Tr s={"Evidence groups with submitted data:"} />{' '}
                 <strong className="text-fg-secondary">
-                  {evidenceGroupsWithData} of {EVIDENCE_GROUPS.length}
+                  {evidenceGroupsWithData} <Tr s={"of"} />{' '}{EVIDENCE_GROUPS.length}
                 </strong>
-                . This counts groups, not completeness — FRL publishes a score only when every factor
-                has evidence.
-              </p>
+                <Tr s={". This counts groups, not completeness — FRL publishes a score only when every factor has evidence."} /></p>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {evidence.map(({ group, available }) => {
+                {evidence.map(({ group, available }, ei) => {
                   const Icon = group.icon;
 
                   return (
                     <div
                       key={group.id}
-                      className="rounded-md border border-white/[0.08] bg-white/[0.02] p-4"
+                      data-fx="up"
+                      style={{ ['--i' as string]: ei }}
+                      className={`frl-chip-tile p-4 ${available ? 'frl-chip-tile-on' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-start gap-2.5">
@@ -1161,9 +1240,7 @@ export function ReputationEngineView({
               </div>
 
               <p className="mt-4 text-caption leading-relaxed text-fg-subtle">
-                Raw financial information is read by the FRL engine to decide whether a reputation can
-                be produced. It is never exposed through public reputation verification.
-              </p>
+                <Tr s={"Raw financial information is read by the FRL engine to decide whether a reputation can be produced. It is never exposed through public reputation verification."} /></p>
             </CardContent>
           </Card>
 
@@ -1171,11 +1248,9 @@ export function ReputationEngineView({
           <Card tone="base" padding="md">
             <CardHeader>
               <div>
-                <CardTitle>Owner actions</CardTitle>
+                <CardTitle><Tr s={"Owner actions"} /></CardTitle>
                 <CardDescription>
-                  These are the actions FRL already offers. Nothing on this screen can change a
-                  reputation without evidence behind it.
-                </CardDescription>
+                  <Tr s={"These are the actions FRL already offers. Nothing on this screen can change a reputation without evidence behind it."} /></CardDescription>
               </div>
             </CardHeader>
 
@@ -1193,8 +1268,7 @@ export function ReputationEngineView({
                 onClick={() => setActiveTab('my_reputation')}
                 icon={<Award className="h-4 w-4" />}
               >
-                View reputation
-              </Button>
+                <Tr s={"View reputation"} /></Button>
 
               {canGenerateProof ? (
                 <Button
@@ -1203,17 +1277,14 @@ export function ReputationEngineView({
                   loading={generatingProof}
                   icon={<ShieldCheck className="h-4 w-4" />}
                 >
-                  Generate reputation proof
-                </Button>
+                  <Tr s={"Generate reputation proof"} /></Button>
               ) : (
                 <div className="flex items-start gap-2.5 rounded-md border border-white/[0.08] bg-white/[0.02] p-4">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" aria-hidden="true" />
                   <div className="min-w-0">
-                    <h4 className="text-body-sm font-semibold text-slate-200">Proof unavailable</h4>
+                    <h4 className="text-body-sm font-semibold text-slate-200"><Tr s={"Proof unavailable"} /></h4>
                     <p className="mt-1 text-caption leading-relaxed text-fg-muted">
-                      A reputation proof can only be minted from a scored outcome. Complete your
-                      evidence first.
-                    </p>
+                      <Tr s={"A reputation proof can only be minted from a scored outcome. Complete your evidence first."} /></p>
                   </div>
                 </div>
               )}
@@ -1223,32 +1294,28 @@ export function ReputationEngineView({
                 onClick={() => setActiveTab('verify')}
                 icon={<ShieldCheck className="h-4 w-4" />}
               >
-                Verify a company
-              </Button>
+                <Tr s={"Verify a company"} /></Button>
 
               <Button
                 variant="secondary"
                 onClick={() => setActiveTab('reputation_data')}
                 icon={<Layers className="h-4 w-4" />}
               >
-                Review submitted data
-              </Button>
+                <Tr s={"Review submitted data"} /></Button>
 
               <Button
                 variant="secondary"
                 onClick={() => setActiveTab('proofs')}
                 icon={<Lock className="h-4 w-4" />}
               >
-                Manage proofs
-              </Button>
+                <Tr s={"Manage proofs"} /></Button>
 
               <Link
                 href="/search"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-100 transition-[background-color,border-color,color,transform] duration-[var(--frl-dur-fast)] ease-[var(--frl-ease-standard)] hover:border-white/25 hover:bg-white/10 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               >
                 <Search className="h-4 w-4" aria-hidden="true" />
-                Return to search
-              </Link>
+                <Tr s={"Return to search"} /></Link>
             </CardContent>
           </Card>
         </div>
@@ -1256,101 +1323,6 @@ export function ReputationEngineView({
 
       {activeTab === 'dashboard' && scored && (
         <div className="space-y-8">
-          {/* SECTION 4: MY BUSINESS REPUTATION HERO CARD */}
-          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/10 pb-6">
-              <div>
-                <span className="text-xs font-mono text-indigo-400 uppercase tracking-widest font-semibold flex items-center gap-1.5 mb-1">
-                  <ShieldCheck className="w-4 h-4" />
-                  B2B Business Reputation Signal
-                </span>
-                <h2 className="text-3xl font-extrabold text-slate-100">My Business Reputation</h2>
-              </div>
-
-              {/* Primary Actions (Section 5) */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <button
-                  onClick={() => setActiveTab('my_reputation')}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2"
-                >
-                  <Award className="w-4 h-4" />
-                  View My Reputation
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('verify')}
-                  className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 border border-white/10 text-xs font-bold transition-all flex items-center gap-2"
-                >
-                  <Search className="w-4 h-4 text-indigo-400" />
-                  Verify a Company
-                </button>
-
-                <button
-                  onClick={handleGenerateProof}
-                  disabled={generatingProof}
-                  className="px-4 py-2.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 text-xs font-semibold transition-all flex items-center gap-1.5"
-                >
-                  {generatingProof ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
-                  Share Reputation
-                </button>
-              </div>
-            </div>
-
-            {/* Central Score & 4 Major B2B Dimensions */}
-            <div className="grid md:grid-cols-3 gap-8 items-center">
-              {/* Central Score Display */}
-              <div className="text-center md:text-left space-y-2 p-6 rounded-2xl bg-black/30 border border-white/5">
-                <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block">
-                  {isDemo ? 'Demo Reputation Score (not real)' : 'Official FRL Score'}
-                </span>
-                <div className="flex items-baseline justify-center md:justify-start gap-3">
-                  <span className="text-6xl font-black tracking-tight text-white">{scored.score}</span>
-                  <span className="text-sm text-slate-400 font-medium">/ 850</span>
-                </div>
-                <div className="pt-1">{getLevelBadge(scored.level)}</div>
-                <p className="text-[11px] text-slate-400 pt-2 border-t border-white/5">
-                  {isDemo
-                    ? 'Sample data from a demo profile. This is not a real FRL reputation.'
-                    : 'Calculated engine-side from verified financial behavior.'}
-                </p>
-              </div>
-
-              {/* 4 Major Reputation Dimensions Grid (Section 4 & 10) */}
-              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
-                  <span className="text-xs text-slate-400 font-medium block">Payment Reliability</span>
-                  <strong className="text-lg font-extrabold text-emerald-400 block">{b2bDimensions.paymentReliability}</strong>
-                  <span className="text-[10px] text-slate-500 block">On-time obligation performance</span>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
-                  <span className="text-xs text-slate-400 font-medium block">Business Reliability</span>
-                  <strong className="text-lg font-extrabold text-indigo-400 block">{b2bDimensions.businessReliability}</strong>
-                  <span className="text-[10px] text-slate-500 block">Operational transaction signals</span>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
-                  <span className="text-xs text-slate-400 font-medium block">Financial Stability</span>
-                  <strong className="text-lg font-extrabold text-slate-200 block">{b2bDimensions.financialStability}</strong>
-                  <span className="text-[10px] text-slate-500 block">Consistency & liquidity stability</span>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1">
-                  <span className="text-xs text-slate-400 font-medium block">Transaction History</span>
-                  <strong className="text-lg font-extrabold text-amber-400 block">{b2bDimensions.transactionHistory}</strong>
-                  <span className="text-[10px] text-slate-500 block">Historical activity duration</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Neutral Disclaimer (Section 10) */}
-            <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 text-xs text-slate-400 flex items-start gap-3 leading-relaxed">
-              <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-              <div>
-                Your Business Reputation is a signal generated from financial and transaction behavior available to FRL. It is intended to support business decisions and does not guarantee future business performance.
-              </div>
-            </div>
-          </div>
 {/* Verification entry point.
               The lookup form itself lives on the Verification Centre tab. It
               used to be duplicated inline here, which put two copies of the
@@ -1364,12 +1336,9 @@ export function ReputationEngineView({
                   aria-hidden="true"
                 />
                 <div className="min-w-0">
-                  <h3 className="text-h4 text-slate-100">Verify a company</h3>
+                  <h3 className="text-h4 text-slate-100"><Tr s={"Verify a company"} /></h3>
                   <p className="mt-1.5 max-w-xl text-body-sm leading-relaxed text-fg-muted">
-                    Check a company&apos;s reputation proof or controlled disclosure link before you
-                    do business with them. FRL reports the record&apos;s real state and shows a
-                    score only when that record is valid.
-                  </p>
+                    <Tr s={"Check a company's reputation proof or controlled disclosure link before you do business with them. FRL reports the record's real state and shows a score only when that record is valid."} /></p>
                 </div>
               </div>
               <Button
@@ -1378,8 +1347,7 @@ export function ReputationEngineView({
                 trailingIcon={<ArrowRight className="h-4 w-4" />}
                 className="shrink-0"
               >
-                Open verification centre
-              </Button>
+                <Tr s={"Open verification centre"} /></Button>
             </div>
           </Card>
         </div>
@@ -1396,25 +1364,21 @@ export function ReputationEngineView({
             <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.02]">
               <Award className="h-6 w-6 text-fg-subtle" aria-hidden="true" />
             </div>
-            <h2 className="mt-4 text-h3 text-slate-100">No reputation to show yet</h2>
+            <h2 className="mt-4 text-h3 text-slate-100"><Tr s={"No reputation to show yet"} /></h2>
             <p className="mx-auto mt-2 max-w-md text-body-sm leading-relaxed text-fg-muted">
-              FRL has not produced a score for your evidence, so there is no breakdown, no trend
-              and no analysis to display. Nothing is shown here rather than a partial figure.
-            </p>
+              <Tr s={"FRL has not produced a score for your evidence, so there is no breakdown, no trend and no analysis to display. Nothing is shown here rather than a partial figure."} /></p>
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               <Button
                 onClick={() => setActiveTab('dashboard')}
                 icon={<LayoutDashboard className="h-4 w-4" />}
               >
-                See what is missing
-              </Button>
+                <Tr s={"See what is missing"} /></Button>
               <Button
                 variant="outline"
                 onClick={() => setIsModalOpen(true)}
                 icon={<PlusCircle className="h-4 w-4" />}
               >
-                Add financial evidence
-              </Button>
+                <Tr s={"Add financial evidence"} /></Button>
             </div>
           </CardContent>
         </Card>
@@ -1425,16 +1389,13 @@ export function ReputationEngineView({
           <Card tone="base" padding="md">
             <CardHeader>
               <div>
-                <CardTitle>Your reputation, in detail</CardTitle>
+                <CardTitle><Tr s={"Your reputation, in detail"} /></CardTitle>
                 <CardDescription>
-                  How the engine scored you, the factors behind that score, and how it has moved
-                  over time.
-                </CardDescription>
+                  <Tr s={"How the engine scored you, the factors behind that score, and how it has moved over time."} /></CardDescription>
               </div>
               {isDemo && (
                 <Badge tone="demo" size="sm">
-                  Demo sample
-                </Badge>
+                  <Tr s={"Demo sample"} /></Badge>
               )}
             </CardHeader>
 
@@ -1459,7 +1420,7 @@ export function ReputationEngineView({
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-label text-fg-subtle">What sits behind the score</h3>
+                <h3 className="text-label text-fg-subtle"><Tr s={"What sits behind the score"} /></h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
                     {
@@ -1517,25 +1478,19 @@ export function ReputationEngineView({
           <Card tone="base" padding="md">
             <CardHeader>
               <div>
-                <CardTitle>Why is my score like this?</CardTitle>
+                <CardTitle><Tr s={"Why is my score like this?"} /></CardTitle>
                 <CardDescription>
-                  An interpretation of the evidence you submitted, written by the FRL analysis
-                  service.
-                </CardDescription>
+                  <Tr s={"An interpretation of the evidence you submitted, written by the FRL analysis service."} /></CardDescription>
               </div>
               <Badge tone="neutral" size="sm">
-                AI analysis
-              </Badge>
+                <Tr s={"AI analysis"} /></Badge>
             </CardHeader>
 
             <CardContent className="mt-5 space-y-5">
               <div className="flex items-start gap-2.5 rounded-md border border-white/[0.08] bg-white/[0.02] p-4">
                 <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary-hover" aria-hidden="true" />
                 <p className="text-caption leading-relaxed text-fg-muted">
-                  Generated commentary is informational and based strictly on the financial data in
-                  your profile. It does not determine your reputation score and is not financial,
-                  lending or investment advice.
-                </p>
+                  <Tr s={"Generated commentary is informational and based strictly on the financial data in your profile. It does not determine your reputation score and is not financial, lending or investment advice."} /></p>
               </div>
 
               {aiLoading && (
@@ -1544,7 +1499,7 @@ export function ReputationEngineView({
                     className="h-5 w-5 animate-spin text-primary-hover motion-reduce:animate-none"
                     aria-hidden="true"
                   />
-                  <p>Analysing your reputation factors…</p>
+                  <p><Tr s={"Analysing your reputation factors…"} /></p>
                 </div>
               )}
 
@@ -1557,8 +1512,7 @@ export function ReputationEngineView({
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-demo" aria-hidden="true" />
                     <div>
                       <h4 className="text-body-sm font-semibold text-slate-100">
-                        Analysis unavailable
-                      </h4>
+                        <Tr s={"Analysis unavailable"} /></h4>
                       <p className="mt-1 text-body-sm leading-relaxed text-fg-muted">{aiError}</p>
                     </div>
                   </div>
@@ -1568,15 +1522,14 @@ export function ReputationEngineView({
                     onClick={() => fetchAIAnalysis()}
                     className="shrink-0"
                   >
-                    Try again
-                  </Button>
+                    <Tr s={"Try again"} /></Button>
                 </div>
               )}
 
               {analysis && !aiLoading && (
                 <div className="space-y-5">
                   <div className="rounded-md border border-white/[0.08] bg-white/[0.02] p-4">
-                    <h4 className="text-label text-fg-subtle">Summary</h4>
+                    <h4 className="text-label text-fg-subtle"><Tr s={"Summary"} /></h4>
                     <p className="mt-2 text-body leading-relaxed text-slate-200">
                       {analysis.summary}
                     </p>
@@ -1586,8 +1539,7 @@ export function ReputationEngineView({
                     <div className="rounded-md border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
                       <h4 className="flex items-center gap-1.5 text-label text-emerald-400">
                         <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        Reported strengths
-                      </h4>
+                        <Tr s={"Reported strengths"} /></h4>
                       <ul className="mt-2.5 space-y-2">
                         {analysis.strengths.map((strength) => (
                           <li
@@ -1607,8 +1559,7 @@ export function ReputationEngineView({
                     <div className="rounded-md border border-demo-line bg-demo-soft p-4">
                       <h4 className="flex items-center gap-1.5 text-label text-demo">
                         <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                        Areas to monitor
-                      </h4>
+                        <Tr s={"Areas to monitor"} /></h4>
                       <ul className="mt-2.5 space-y-2">
                         {analysis.concerns.map((concern) => (
                           <li
@@ -1629,8 +1580,7 @@ export function ReputationEngineView({
 
               {!analysis && !aiLoading && !aiError && (
                 <p className="py-6 text-center text-body-sm text-fg-subtle">
-                  No analysis has been produced for this evidence.
-                </p>
+                  <Tr s={"No analysis has been produced for this evidence."} /></p>
               )}
             </CardContent>
           </Card>
@@ -1638,9 +1588,7 @@ export function ReputationEngineView({
           <div className="flex items-start gap-2.5 rounded-md border border-white/[0.08] bg-white/[0.02] p-4">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-hover" aria-hidden="true" />
             <p className="text-caption leading-relaxed text-fg-muted">
-              This signal is generated from the financial and transaction behaviour available to
-              FRL. It supports a business decision; it does not guarantee future performance.
-            </p>
+              <Tr s={"This signal is generated from the financial and transaction behaviour available to FRL. It supports a business decision; it does not guarantee future performance."} /></p>
           </div>
         </div>
       )}
@@ -1653,11 +1601,9 @@ export function ReputationEngineView({
           <Card tone="base" padding="md">
             <CardHeader>
               <div>
-                <CardTitle>Verification centre</CardTitle>
+                <CardTitle><Tr s={"Verification centre"} /></CardTitle>
                 <CardDescription>
-                  Look up a reputation proof or a controlled disclosure link. FRL reports the
-                  record&apos;s real state and shows a score only when that record is valid.
-                </CardDescription>
+                  <Tr s={"Look up a reputation proof or a controlled disclosure link. FRL reports the record's real state and shows a score only when that record is valid."} /></CardDescription>
               </div>
             </CardHeader>
 
@@ -1667,8 +1613,7 @@ export function ReputationEngineView({
                   htmlFor="frl-verify-input"
                   className="mb-1.5 block text-caption font-medium text-fg-secondary"
                 >
-                  FRL proof or disclosure reference
-                </label>
+                  <Tr s={"FRL proof or disclosure reference"} /></label>
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <input
                     id="frl-verify-input"
@@ -1687,19 +1632,15 @@ export function ReputationEngineView({
                     icon={<ShieldCheck className="h-4 w-4" />}
                     className="shrink-0"
                   >
-                    Verify
-                  </Button>
+                    <Tr s={"Verify"} /></Button>
                 </div>
                 <p id="frl-verify-hint" className="mt-1.5 text-caption leading-relaxed text-fg-subtle">
-                  A full <code className="font-mono">/verify/…</code> link or a bare reference both
-                  work. FRL checks the record it resolves to; it never accepts a score from the
-                  link itself.
-                </p>
+                  <Tr s={"A full"} />{' '}<code className="font-mono">/verify/…</code> <Tr s={"link or a bare reference both work. FRL checks the record it resolves to; it never accepts a score from the link itself."} /></p>
               </div>
 
               {(proofs[0] || shares[0]) && (
                 <div className="flex flex-wrap items-center gap-2 text-caption text-fg-muted">
-                  <span>Your own references:</span>
+                  <span><Tr s={"Your own references:"} /></span>
                   {proofs[0] && (
                     <button
                       type="button"
@@ -1746,13 +1687,10 @@ export function ReputationEngineView({
                   <div className="space-y-5 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.04] p-5">
                     <div className="text-center">
                       <Badge tone="success" size="md" dot className="mx-auto">
-                        Valid proof
-                      </Badge>
-                      <h3 className="mt-3 text-h3 text-white">Reputation verified</h3>
+                        <Tr s={"Valid proof"} /></Badge>
+                      <h3 className="mt-3 text-h3 text-white"><Tr s={"Reputation verified"} /></h3>
                       <p className="mx-auto mt-2 max-w-md text-body-sm leading-relaxed text-fg-muted">
-                        This proof is active. FRL shows the reputation recorded when it was issued.
-                        The figures below are a snapshot and may have changed since.
-                      </p>
+                        <Tr s={"This proof is active. FRL shows the reputation recorded when it was issued. The figures below are a snapshot and may have changed since."} /></p>
                     </div>
 
                     <div className="flex items-baseline justify-center gap-3 border-y border-white/[0.06] py-6">
@@ -1790,7 +1728,7 @@ export function ReputationEngineView({
 
                     <dl className="grid grid-cols-1 gap-3 border-t border-white/[0.06] pt-4 sm:grid-cols-3">
                       <div>
-                        <dt className="text-caption text-fg-subtle">Verified</dt>
+                        <dt className="text-caption text-fg-subtle"><Tr s={"Verified"} /></dt>
                         <dd className="mt-0.5 text-body-sm text-slate-100">
                           {verificationResult.verifiedAt
                             ? new Date(verificationResult.verifiedAt).toLocaleDateString('en-GB', {
@@ -1802,7 +1740,7 @@ export function ReputationEngineView({
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-caption text-fg-subtle">Expires</dt>
+                        <dt className="text-caption text-fg-subtle"><Tr s={"Expires"} /></dt>
                         <dd className="mt-0.5 text-body-sm text-slate-100">
                           {verificationResult.expiresAt
                             ? new Date(verificationResult.expiresAt).toLocaleDateString('en-GB', {
@@ -1814,7 +1752,7 @@ export function ReputationEngineView({
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-caption text-fg-subtle">Evidence policy</dt>
+                        <dt className="text-caption text-fg-subtle"><Tr s={"Evidence policy"} /></dt>
                         <dd className="mt-0.5 text-body-sm text-slate-100">
                           {verificationResult.policyVersion || 'Not reported'}
                         </dd>
@@ -1822,9 +1760,7 @@ export function ReputationEngineView({
                     </dl>
 
                     <p className="text-caption leading-relaxed text-fg-subtle">
-                      A verified proof supports a business decision. It does not guarantee future
-                      business performance.
-                    </p>
+                      <Tr s={"A verified proof supports a business decision. It does not guarantee future business performance."} /></p>
                   </div>
                 ) : (
                   <div className="space-y-4 rounded-lg border border-white/10 bg-white/[0.02] p-5">
@@ -1865,13 +1801,13 @@ export function ReputationEngineView({
 
                     <dl className="grid grid-cols-1 gap-3 border-t border-white/[0.06] pt-4 sm:grid-cols-3">
                       <div>
-                        <dt className="text-caption text-fg-subtle">Status</dt>
+                        <dt className="text-caption text-fg-subtle"><Tr s={"Status"} /></dt>
                         <dd className="mt-0.5 text-body-sm capitalize text-slate-100">
                           {String(verificationResult.status || 'unknown')}
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-caption text-fg-subtle">Verified</dt>
+                        <dt className="text-caption text-fg-subtle"><Tr s={"Verified"} /></dt>
                         <dd className="mt-0.5 text-body-sm text-slate-100">
                           {verificationResult.verifiedAt
                             ? new Date(verificationResult.verifiedAt).toLocaleDateString('en-GB', {
@@ -1883,7 +1819,7 @@ export function ReputationEngineView({
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-caption text-fg-subtle">Evidence policy</dt>
+                        <dt className="text-caption text-fg-subtle"><Tr s={"Evidence policy"} /></dt>
                         <dd className="mt-0.5 text-body-sm text-slate-100">
                           {verificationResult.policyVersion || 'Not reported'}
                         </dd>
@@ -1905,12 +1841,9 @@ export function ReputationEngineView({
           <Card tone="base" padding="md">
             <CardHeader>
               <div>
-                <CardTitle>Reputation proofs</CardTitle>
+                <CardTitle><Tr s={"Reputation proofs"} /></CardTitle>
                 <CardDescription>
-                  A proof is a dated snapshot of your reputation at a moment in time, produced by
-                  the FRL engine from your submitted evidence. Anyone holding the link can read it
-                  until it expires or you revoke it.
-                </CardDescription>
+                  <Tr s={"A proof is a dated snapshot of your reputation at a moment in time, produced by the FRL engine from your submitted evidence. Anyone holding the link can read it until it expires or you revoke it."} /></CardDescription>
               </div>
               {canGenerateProof ? (
                 <Button
@@ -1919,8 +1852,7 @@ export function ReputationEngineView({
                   icon={<ShieldCheck className="h-4 w-4" />}
                   className="shrink-0"
                 >
-                  Create Proof
-                </Button>
+                  <Tr s={"Create Proof"} /></Button>
               ) : null}
             </CardHeader>
 
@@ -1940,19 +1872,16 @@ export function ReputationEngineView({
                 <div className="flex items-start gap-3 rounded-md border border-white/10 bg-white/[0.02] p-4">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" aria-hidden="true" />
                   <div className="min-w-0">
-                    <h3 className="text-body-sm font-semibold text-slate-100">Proof unavailable</h3>
+                    <h3 className="text-body-sm font-semibold text-slate-100"><Tr s={"Proof unavailable"} /></h3>
                     <p className="mt-1 text-body-sm leading-relaxed text-fg-muted">
-                      FRL can only mint a proof from a scored reputation, and you do not have one
-                      yet. Complete your financial evidence first; the engine will produce a score,
-                      and a proof becomes available at that point.
-                    </p>
+                      <Tr s={"FRL can only mint a proof from a scored reputation, and you do not have one yet. Complete your financial evidence first; the engine will produce a score, and a proof becomes available at that point."} /></p>
                   </div>
                 </div>
               )}
 
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-label text-fg-subtle">Active proofs</h3>
+                  <h3 className="text-label text-fg-subtle"><Tr s={"Active proofs"} /></h3>
                   <Badge tone="neutral" size="sm">
                     {proofs.filter((p) => p.status === 'active').length}
                   </Badge>
@@ -1961,8 +1890,7 @@ export function ReputationEngineView({
                 {proofsLoading ? (
                   <div className="flex items-center justify-center gap-2 rounded-md border border-white/[0.06] p-6 text-body-sm text-fg-muted">
                     <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                    Loading proofs…
-                  </div>
+                    <Tr s={"Loading proofs…"} /></div>
                 ) : proofs.filter((p) => p.status === 'active').length === 0 ? (
                   <div className="rounded-md border border-dashed border-white/10 bg-white/[0.02] p-6 text-center text-body-sm leading-relaxed text-fg-muted">
                     {canGenerateProof
@@ -1985,8 +1913,7 @@ export function ReputationEngineView({
                                   {proof.id.replace(/^proof_/, '').slice(0, 12)}
                                 </span>
                                 <Badge tone="success" size="sm" dot>
-                                  Active
-                                </Badge>
+                                  <Tr s={"Active"} /></Badge>
                               </div>
                               <div className="mt-2 flex flex-wrap items-baseline gap-3">
                                 <span className="text-h3 text-white">{proof.score}</span>
@@ -1997,7 +1924,7 @@ export function ReputationEngineView({
                               </div>
                               <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
                                 <div className="flex items-baseline gap-1.5">
-                                  <dt className="text-caption text-fg-subtle">Issued</dt>
+                                  <dt className="text-caption text-fg-subtle"><Tr s={"Issued"} /></dt>
                                   <dd className="text-caption text-slate-300">
                                     {new Date(proof.verifiedAt).toLocaleDateString('en-GB', {
                                       day: '2-digit',
@@ -2007,7 +1934,7 @@ export function ReputationEngineView({
                                   </dd>
                                 </div>
                                 <div className="flex items-baseline gap-1.5">
-                                  <dt className="text-caption text-fg-subtle">Expires</dt>
+                                  <dt className="text-caption text-fg-subtle"><Tr s={"Expires"} /></dt>
                                   <dd className="text-caption text-slate-300">
                                     {new Date(proof.expiresAt).toLocaleDateString('en-GB', {
                                       day: '2-digit',
@@ -2017,7 +1944,7 @@ export function ReputationEngineView({
                                   </dd>
                                 </div>
                                 <div className="flex items-baseline gap-1.5">
-                                  <dt className="text-caption text-fg-subtle">Policy</dt>
+                                  <dt className="text-caption text-fg-subtle"><Tr s={"Policy"} /></dt>
                                   <dd className="text-caption text-slate-300">
                                     {proof.policyVersion || 'Not reported'}
                                   </dd>
@@ -2035,8 +1962,7 @@ export function ReputationEngineView({
                                 }}
                                 icon={<Share2 className="h-3.5 w-3.5" />}
                               >
-                                Share
-                              </Button>
+                                <Tr s={"Share"} /></Button>
                               <a
                                 href={`/verify/${proof.id}`}
                                 target="_blank"
@@ -2044,8 +1970,7 @@ export function ReputationEngineView({
                                 className="inline-flex h-9 items-center gap-1.5 rounded-md border border-white/20 px-3 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/5"
                               >
                                 <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                                View
-                              </a>
+                                <Tr s={"View"} /></a>
                               <Button
                                 variant="secondary"
                                 size="sm"
@@ -2067,8 +1992,7 @@ export function ReputationEngineView({
                                 className="text-rose-300 hover:text-rose-200"
                                 icon={<XCircle className="h-3.5 w-3.5" />}
                               >
-                                Revoke
-                              </Button>
+                                <Tr s={"Revoke"} /></Button>
                             </div>
                           </div>
                         </div>
@@ -2079,23 +2003,19 @@ export function ReputationEngineView({
 
               <div className="space-y-3 border-t border-white/[0.06] pt-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-label text-fg-subtle">Controlled disclosure links</h3>
+                  <h3 className="text-label text-fg-subtle"><Tr s={"Controlled disclosure links"} /></h3>
                   <Badge tone="neutral" size="sm">
                     {shares.length}
                   </Badge>
                 </div>
                 <p className="text-caption leading-relaxed text-fg-subtle">
-                  A disclosure link releases less than a proof. You choose whether it carries the
-                  score alone, the score and level, or the factor results.
-                </p>
+                  <Tr s={"A disclosure link releases less than a proof. You choose whether it carries the score alone, the score and level, or the factor results."} /></p>
 
                 {sharesLoading ? (
-                  <div className="p-4 text-center text-body-sm text-fg-muted">Loading disclosures…</div>
+                  <div className="p-4 text-center text-body-sm text-fg-muted"><Tr s={"Loading disclosures…"} /></div>
                 ) : shares.length === 0 ? (
                   <div className="rounded-md border border-dashed border-white/10 bg-white/[0.02] p-6 text-center text-body-sm text-fg-muted">
-                    No disclosure links yet. Create one from an active proof to control what that
-                    recipient can see.
-                  </div>
+                    <Tr s={"No disclosure links yet. Create one from an active proof to control what that recipient can see."} /></div>
                 ) : (
                   <div className="space-y-2.5">
                     {shares.map((share) => (
@@ -2129,7 +2049,7 @@ export function ReputationEngineView({
                             </Badge>
                           </div>
                           <p className="mt-1.5 text-caption text-fg-muted">
-                            Expires{' '}
+                            <Tr s={"Expires"} />{' '}
                             {new Date(share.expiresAt).toLocaleDateString('en-GB', {
                               day: '2-digit',
                               month: 'short',
@@ -2145,8 +2065,7 @@ export function ReputationEngineView({
                             rel="noopener noreferrer"
                             className="inline-flex h-9 items-center rounded-md border border-white/20 px-3 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/5"
                           >
-                            View
-                          </a>
+                            <Tr s={"View"} /></a>
                           <Button
                             variant="secondary"
                             size="sm"
@@ -2163,8 +2082,7 @@ export function ReputationEngineView({
                               className="text-rose-300 hover:text-rose-200"
                               icon={<XCircle className="h-3.5 w-3.5" />}
                             >
-                              Revoke
-                            </Button>
+                              <Tr s={"Revoke"} /></Button>
                           )}
                         </div>
                       </div>
@@ -2180,7 +2098,7 @@ export function ReputationEngineView({
                   label is exactly how an old figure gets read as valid. */}
               {proofs.filter((p) => p.status !== 'active').length > 0 && (
                 <div className="space-y-3 border-t border-white/[0.06] pt-6">
-                  <h3 className="text-label text-fg-subtle">Retired proofs</h3>
+                  <h3 className="text-label text-fg-subtle"><Tr s={"Retired proofs"} /></h3>
                   <div className="space-y-2">
                     {proofs
                       .filter((p) => p.status !== 'active')
@@ -2209,7 +2127,7 @@ export function ReputationEngineView({
                             </p>
                           </div>
                           <span className="text-caption text-fg-subtle lg:shrink-0">
-                            Issued{' '}
+                            <Tr s={"Issued"} />{' '}
                             {new Date(proof.verifiedAt).toLocaleDateString('en-GB', {
                               day: '2-digit',
                               month: 'short',
@@ -2234,11 +2152,9 @@ export function ReputationEngineView({
           <Card tone="base" padding="md">
             <CardHeader>
               <div>
-                <CardTitle>Submitted financial evidence</CardTitle>
+                <CardTitle><Tr s={"Submitted financial evidence"} /></CardTitle>
                 <CardDescription>
-                  Everything the FRL engine reads from you, and exactly what it is missing. A field
-                  shown as — was never reported. It is never treated as zero.
-                </CardDescription>
+                  <Tr s={"Everything the FRL engine reads from you, and exactly what it is missing. A field shown as — was never reported. It is never treated as zero."} /></CardDescription>
               </div>
               <Button
                 variant="secondary"
@@ -2246,8 +2162,7 @@ export function ReputationEngineView({
                 onClick={() => setIsModalOpen(true)}
                 icon={<Edit3 className="h-4 w-4" />}
               >
-                Update Evidence
-              </Button>
+                <Tr s={"Update Evidence"} /></Button>
             </CardHeader>
 
             <CardContent className="mt-5 space-y-5">
@@ -2265,29 +2180,24 @@ export function ReputationEngineView({
               {!activeFinancialData ? (
                 <div className="rounded-md border border-dashed border-white/10 bg-white/[0.02] p-6 text-center">
                   <PieChart className="mx-auto h-7 w-7 text-fg-subtle" aria-hidden="true" />
-                  <h3 className="mt-3 text-h4 text-slate-100">No evidence has been submitted yet</h3>
+                  <h3 className="mt-3 text-h4 text-slate-100"><Tr s={"No evidence has been submitted yet"} /></h3>
                   <p className="mx-auto mt-2 max-w-lg text-body-sm leading-relaxed text-fg-muted">
-                    FRL cannot calculate a reputation score until sufficient evidence exists. Nothing
-                    is held on this workspace, so there is nothing to show and no score to publish.
-                  </p>
+                    <Tr s={"FRL cannot calculate a reputation score until sufficient evidence exists. Nothing is held on this workspace, so there is nothing to show and no score to publish."} /></p>
                   <Button
                     className="mt-4"
                     onClick={() => setIsModalOpen(true)}
                     icon={<PlusCircle className="h-4 w-4" />}
                   >
-                    Add Financial Evidence
-                  </Button>
+                    <Tr s={"Add Financial Evidence"} /></Button>
                 </div>
               ) : (
                 <>
                   <p className="text-body-sm text-fg-muted">
-                    Evidence groups with submitted data:{' '}
+                    <Tr s={"Evidence groups with submitted data:"} />{' '}
                     <strong className="text-fg-secondary">
-                      {evidenceGroupsWithData} of {EVIDENCE_GROUPS.length}
+                      {evidenceGroupsWithData} <Tr s={"of"} />{' '}{EVIDENCE_GROUPS.length}
                     </strong>
-                    . This counts groups rather than completeness, and FRL publishes a score only
-                    when every required factor has evidence.
-                  </p>
+                    <Tr s={". This counts groups rather than completeness, and FRL publishes a score only when every required factor has evidence."} /></p>
 
                   <div className="grid gap-3 lg:grid-cols-2">
                     {evidence.map(({ group, available }) => {
@@ -2340,9 +2250,7 @@ export function ReputationEngineView({
                   </div>
 
                   <p className="text-caption leading-relaxed text-fg-subtle">
-                    This information is used by FRL to calculate your Business Reputation. Raw
-                    financial information is not exposed through public reputation verification.
-                  </p>
+                    <Tr s={"This information is used by FRL to calculate your Business Reputation. Raw financial information is not exposed through public reputation verification."} /></p>
                 </>
               )}
             </CardContent>
@@ -2370,8 +2278,7 @@ export function ReputationEngineView({
               <div className="flex min-w-0 items-center gap-2.5">
                 <Share2 className="h-5 w-5 shrink-0 text-primary-hover" aria-hidden="true" />
                 <h2 id="frl-share-title" className="text-h3 text-slate-100">
-                  Create disclosure link
-                </h2>
+                  <Tr s={"Create disclosure link"} /></h2>
               </div>
               <Button
                 variant="ghost"
@@ -2386,7 +2293,7 @@ export function ReputationEngineView({
 
             <div className="mt-5 space-y-5">
               <div>
-                <span className="text-caption text-fg-muted">Snapshot this link will share</span>
+                <span className="text-caption text-fg-muted"><Tr s={"Snapshot this link will share"} /></span>
                 <div className="mt-1.5 flex flex-wrap items-center gap-3 rounded-md border border-white/10 bg-white/[0.02] px-4 py-3">
                   <span className="font-mono text-caption text-fg-muted">
                     {selectedProofForShare.id.replace(/^proof_/, '').slice(0, 12)}
@@ -2402,8 +2309,7 @@ export function ReputationEngineView({
 
               <fieldset>
                 <legend className="mb-2 text-caption font-medium text-fg-secondary">
-                  How much should this recipient see?
-                </legend>
+                  <Tr s={"How much should this recipient see?"} /></legend>
                 <div role="radiogroup" className="space-y-2">
                   {(
                     [
@@ -2455,8 +2361,7 @@ export function ReputationEngineView({
 
               <fieldset>
                 <legend className="mb-2 text-caption font-medium text-fg-secondary">
-                  When should the link stop working?
-                </legend>
+                  <Tr s={"When should the link stop working?"} /></legend>
                 <div className="grid grid-cols-3 gap-2">
                   {[7, 30, 90].map((days) => (
                     <button
@@ -2475,8 +2380,7 @@ export function ReputationEngineView({
                   ))}
                 </div>
                 <p className="mt-2 text-caption text-fg-subtle">
-                  The link stops disclosing anything after this date. You can revoke it sooner.
-                </p>
+                  <Tr s={"The link stops disclosing anything after this date. You can revoke it sooner."} /></p>
               </fieldset>
 
               {shareError && (
@@ -2490,11 +2394,9 @@ export function ReputationEngineView({
 
               <div className="flex flex-col-reverse gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-end">
                 <Button variant="ghost" onClick={() => setShareModalOpen(false)}>
-                  Cancel
-                </Button>
+                  <Tr s={"Cancel"} /></Button>
                 <Button onClick={handleCreateShare} loading={creatingShare} icon={<Share2 className="h-4 w-4" />}>
-                  Create link
-                </Button>
+                  <Tr s={"Create link"} /></Button>
               </div>
             </div>
           </div>

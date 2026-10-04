@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ShieldCheck, Link as LinkIcon, Check, Copy } from 'lucide-react';
 import { MOCK_CLAIMS, MOCK_COMPANIES } from '@/lib/mockData';
 
+import { SignalArt } from '@/components/home/Art';
+import { Tr } from '@/lib/i18n';
 export default function CreateClaimPage() {
   const company = MOCK_COMPANIES[0]; // Mock owner is c1
   const ownerClaims = MOCK_CLAIMS.filter(c => c.company_id === company.id && c.status === 'active');
@@ -34,19 +36,20 @@ export default function CreateClaimPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-20">
-      <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/50 backdrop-blur-md">
+      <nav className="frl-glass-nav fixed top-0 z-50 w-full">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-indigo-400" />
-            <span className="font-semibold text-lg tracking-tight">FRL Owner Portal</span>
+            <span className="font-semibold text-lg tracking-tight"><Tr s={"FRL Owner Portal"} /></span>
           </Link>
-          <div className="text-sm text-slate-400">Logged in as {company.name}</div>
+          <div className="text-sm text-slate-400"><Tr s={"Logged in as"} />{' '}{company.name}</div>
         </div>
       </nav>
 
-      <main className="pt-32 max-w-3xl mx-auto px-6">
-        <h1 className="text-3xl font-bold mb-4">Create Verification Link</h1>
-        <p className="text-slate-400 mb-8">Select the claims you want to disclose to your counterparty. They will only see the true/false status and evidence tier, not your raw data.</p>
+      <main className="relative pt-32 max-w-3xl mx-auto px-6">
+        <div aria-hidden="true" className="pointer-events-none absolute right-6 top-28 hidden h-24 w-60 md:block"><SignalArt /></div>
+        <h1 data-fx="up" className="frl-display text-[clamp(1.6rem,3.4vw,2.4rem)] leading-tight mb-4 md:max-w-[62%]"><Tr s={"Create Verification Link"} /></h1>
+        <p className="text-slate-400 mb-8"><Tr s={"Select the claims you want to disclose to your counterparty. They will only see the true/false status and evidence tier, not your raw data."} /></p>
 
         <div className="space-y-4 mb-8">
           {ownerClaims.map(claim => {
@@ -55,7 +58,7 @@ export default function CreateClaimPage() {
               <div 
                 key={claim.id} 
                 onClick={() => toggleClaim(claim.id)}
-                className={`p-5 rounded-2xl border cursor-pointer transition-all ${isSelected ? 'bg-indigo-500/10 border-indigo-500/50' : 'bg-white/5 border-white/10 hover:border-white/20'}`}
+                data-fx="up" className={`frl-panel frl-spot cursor-pointer p-5 ${isSelected ? 'frl-panel-on' : ''}`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`mt-1 flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border ${isSelected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-500'}`}>
@@ -66,7 +69,7 @@ export default function CreateClaimPage() {
                     <p className="text-slate-200 text-sm mb-2">{claim.statement_text}</p>
                     <div className="flex items-center gap-2 text-xs text-slate-400">
                       <span className="px-2 py-0.5 rounded bg-black/30 border border-white/5">{claim.evidence_tier.replace('_', ' ')}</span>
-                      <span>Expires: {claim.expires_at}</span>
+                      <span><Tr s={"Expires:"} />{' '}{claim.expires_at}</span>
                     </div>
                   </div>
                 </div>
@@ -82,14 +85,12 @@ export default function CreateClaimPage() {
             className="flex items-center justify-center gap-2 w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl font-medium transition-all"
           >
             <LinkIcon className="w-5 h-5" />
-            Generate Unique Link
-          </button>
+            <Tr s={"Generate Unique Link"} /></button>
         ) : (
-          <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+          <div className="frl-panel frl-panel-ok p-6">
             <h3 className="text-emerald-400 font-medium mb-4 flex items-center gap-2">
               <Check className="w-5 h-5" />
-              Link Generated Successfully
-            </h3>
+              <Tr s={"Link Generated Successfully"} /></h3>
             <div className="flex items-center gap-3">
               <input 
                 type="text" 
@@ -106,8 +107,7 @@ export default function CreateClaimPage() {
               </button>
             </div>
             <p className="text-sm text-slate-400 mt-4">
-              Share this link securely. Every access is logged and you can revoke it at any time.
-            </p>
+              <Tr s={"Share this link securely. Every access is logged and you can revoke it at any time."} /></p>
           </div>
         )}
       </main>

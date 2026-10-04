@@ -8,13 +8,14 @@ import {
   ArrowRight,
   Info,
   Search as SearchIcon,
-  ShieldCheck,
   X,
 } from 'lucide-react';
 import { CompanySearchResult } from '@/lib/types';
-import { useLanguage, LanguageToggle } from '@/lib/i18n';
 import { Badge, Button, Container } from '@/components/ui';
 
+import { SiteNav } from '@/components/SiteNav';
+import { RadarArt } from '@/components/home/Art';
+import { Tr } from '@/lib/i18n';
 /**
  * FRL search page — UI Phase 3.
  *
@@ -117,16 +118,13 @@ function ResultCard({ item, isDemo }: { item: CompanySearchResult; isDemo: boole
                   or verified branches below, whatever its other fields say. */}
               {isDemo ? (
                 <Badge tone="demo" size="sm" dot>
-                  Demo record
-                </Badge>
+                  <Tr s={"Demo record"} /></Badge>
               ) : isClaimed ? (
                 <Badge tone="primary" size="sm" dot>
-                  Claimed profile
-                </Badge>
+                  <Tr s={"Claimed profile"} /></Badge>
               ) : (
                 <Badge tone="neutral" size="sm">
-                  Unclaimed
-                </Badge>
+                  <Tr s={"Unclaimed"} /></Badge>
               )}
             </div>
 
@@ -137,7 +135,7 @@ function ResultCard({ item, isDemo }: { item: CompanySearchResult; isDemo: boole
                   <span aria-hidden="true" className="text-white/15">
                     /
                   </span>
-                  <span className="tabular">Reg: {item.registrationNumber}</span>
+                  <span className="tabular"><Tr s={"Reg:"} />{' '}{item.registrationNumber}</span>
                 </>
               ) : null}
               {place ? (
@@ -153,18 +151,18 @@ function ResultCard({ item, isDemo }: { item: CompanySearchResult; isDemo: boole
             {/* Provenance. Every value is the real field; absence is stated. */}
             <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[0.6875rem]">
               <div className="flex gap-1.5">
-                <dt className="text-fg-subtle">Source</dt>
+                <dt className="text-fg-subtle"><Tr s={"Source"} /></dt>
                 <dd className="truncate text-fg-muted">{orNotReported(item.source?.provider)}</dd>
               </div>
               <div className="flex gap-1.5">
-                <dt className="text-fg-subtle">Type</dt>
+                <dt className="text-fg-subtle"><Tr s={"Type"} /></dt>
                 <dd className="text-fg-muted">
                   {SOURCE_TYPE_LABEL[item.source?.sourceType] ||
                     orNotReported(item.source?.sourceType)}
                 </dd>
               </div>
               <div className="flex gap-1.5">
-                <dt className="text-fg-subtle">Verification</dt>
+                <dt className="text-fg-subtle"><Tr s={"Verification"} /></dt>
                 <dd
                   className={
                     !isDemo && item.source?.verificationStatus === 'verified'
@@ -182,7 +180,7 @@ function ResultCard({ item, isDemo }: { item: CompanySearchResult; isDemo: boole
                 </dd>
               </div>
               <div className="flex gap-1.5">
-                <dt className="text-fg-subtle">Retrieved</dt>
+                <dt className="text-fg-subtle"><Tr s={"Retrieved"} /></dt>
                 <dd className="text-fg-muted">
                   {retrieved ? new Date(retrieved).toLocaleDateString() : 'Not reported'}
                 </dd>
@@ -197,14 +195,13 @@ function ResultCard({ item, isDemo }: { item: CompanySearchResult; isDemo: boole
             edge to save a row. */}
         <div className="flex shrink-0 flex-col items-start gap-3 border-t border-white/[0.06] pt-4 sm:w-44 sm:items-end sm:border-t-0 sm:pt-0">
           <div className="sm:text-right">
-            <p className="text-label text-fg-subtle">Reputation</p>
+            <p className="text-label text-fg-subtle"><Tr s={"Reputation"} /></p>
             {/* STRICT PRODUCT RULE: a registry identity record never carries a
                 score, and a demo record never shows a number that could read
                 as a real one. The label always outranks the numeral. */}
             {isDemo ? (
               <Badge tone="demo" size="sm" className="mt-2">
-                Demo data — not a real score
-              </Badge>
+                <Tr s={"Demo data — not a real score"} /></Badge>
             ) : hasScore ? (
               <p className="mt-1 text-2xl font-bold tabular text-white">
                 {item.reputationScore}
@@ -212,8 +209,7 @@ function ResultCard({ item, isDemo }: { item: CompanySearchResult; isDemo: boole
               </p>
             ) : (
               <Badge tone="insufficient" size="sm" className="mt-2">
-                Insufficient data
-              </Badge>
+                <Tr s={"Insufficient data"} /></Badge>
             )}
           </div>
 
@@ -221,8 +217,7 @@ function ResultCard({ item, isDemo }: { item: CompanySearchResult; isDemo: boole
             href={`/company/${item.id}`}
             className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-md border border-primary/35 bg-primary-soft px-4 text-xs font-semibold text-indigo-200 transition-[background-color,border-color,transform] duration-[var(--frl-dur-fast)] ease-[var(--frl-ease-standard)] hover:border-primary/60 hover:bg-indigo-500/15 active:translate-y-px sm:w-auto"
           >
-            View profile
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            <Tr s={"View profile"} /><ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </div>
       </div>
@@ -247,7 +242,6 @@ function SearchContent() {
     message?: string;
   }>({});
 
-  const { t } = useLanguage();
 
   const performSearch = async (q: string) => {
     const trimmed = q.trim();
@@ -322,48 +316,17 @@ function SearchContent() {
   return (
     <div className="min-h-screen bg-canvas text-fg font-sans antialiased selection:bg-primary-soft">
       {/* ============================== NAV ============================== */}
-      <nav className="fixed top-0 z-50 w-full frl-glass-nav">
-        <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-y-2 px-4 py-2 sm:h-16 sm:px-6 sm:py-0 lg:px-8">
-          <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="FRL home">
-            <span className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-white/[0.04]">
-              <ShieldCheck className="h-4 w-4 text-primary-hover" aria-hidden="true" />
-            </span>
-            <span className="flex flex-col leading-none">
-              <span className="text-[0.9375rem] font-semibold tracking-tight text-white">FRL</span>
-              <span className="mt-0.5 hidden text-[0.5625rem] uppercase tracking-[0.14em] text-fg-subtle sm:block">
-                Reputation Layer
-              </span>
-            </span>
-          </Link>
-          <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 sm:gap-x-7">
-            <LanguageToggle />
-            <Link
-              href="/search"
-              className="inline-flex h-9 items-center rounded-md px-1 text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover"
-            >
-              {t('nav.findCompany', 'Search Companies')}
-            </Link>
-            <Link
-              href="/principles"
-              className="hidden h-9 items-center rounded-md px-1 text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover sm:inline-flex"
-            >
-              {t('nav.principles', 'Principles')}
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       <main className="pt-28 sm:pt-32">
         <Container width="wide">
           {/* ============================ HEADER ============================ */}
-          <div className="max-w-2xl">
-            <p className="text-label text-primary-hover">Business intelligence</p>
-            <h1 className="mt-4 text-h1 text-white">Find a business</h1>
+          <div className="relative max-w-2xl">
+            <span aria-hidden="true" className="frl-ghost" style={{ fontSize: 'clamp(4rem,12vw,9rem)', right: '-9rem', top: '-1rem' }}><Tr s={"FIND"} /></span>
+            <p className="text-label text-primary-hover"><Tr s={"Business intelligence"} /></p>
+            <h1 className="mt-4 text-h1 text-white"><Tr s={"Find a business"} /></h1>
             <p className="mt-5 text-body leading-relaxed text-fg-muted">
-              Search business records and inspect the evidence available to FRL.
-              A registry record identifies a company; it is not itself a verification,
-              and not every record carries financial evidence.
-            </p>
+              <Tr s={"Search business records and inspect the evidence available to FRL. A registry record identifies a company; it is not itself a verification, and not every record carries financial evidence."} /></p>
           </div>
 
           {/* ======================= SEARCH COMMAND ======================= */}
@@ -371,8 +334,7 @@ function SearchContent() {
             <div className="frl-glass rounded-lg p-2 sm:flex sm:items-center sm:gap-2">
               <div className="relative flex-1">
                 <label htmlFor="frl-search-input" className="sr-only">
-                  Search company by name or registration number
-                </label>
+                  <Tr s={"Search company by name or registration number"} /></label>
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4"
@@ -407,19 +369,16 @@ function SearchContent() {
                   className="w-full sm:w-auto"
                   icon={!loading ? <SearchIcon className="h-4 w-4" aria-hidden="true" /> : undefined}
                 >
-                  Search
-                </Button>
+                  <Tr s={"Search"} /></Button>
                 <kbd
                   aria-hidden="true"
                   className="hidden shrink-0 select-none rounded-sm border border-white/10 px-1.5 py-0.5 font-mono text-[0.625rem] text-fg-subtle lg:block"
                 >
-                  Enter
-                </kbd>
+                  <Tr s={"Enter"} /></kbd>
               </div>
             </div>
             <p className="mt-2.5 px-1 text-caption text-fg-subtle">
-              Two characters or more. FRL queries the public corporate registry.
-            </p>
+              <Tr s={"Two characters or more. FRL queries the public corporate registry."} /></p>
           </form>
 
           {/* ======================= PROVIDER NOTICE ======================= */}
@@ -428,8 +387,7 @@ function SearchContent() {
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
               <div>
                 <p className="text-body-sm font-semibold text-amber-200">
-                  Registry provider not configured
-                </p>
+                  <Tr s={"Registry provider not configured"} /></p>
                 <p className="mt-1 text-body-sm leading-relaxed text-amber-300/85">
                   {providerInfo.message ||
                     'The company registry provider is not configured, so no real company records can be shown.'}
@@ -442,9 +400,9 @@ function SearchContent() {
           {hasQuery && !loading ? (
             <div className="mt-10 flex flex-col gap-4 border-b border-white/[0.06] pb-5 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
-                <p className="text-label text-fg-subtle">Search results</p>
+                <p className="text-label text-fg-subtle"><Tr s={"Search results"} /></p>
                 <p className="mt-1.5 truncate text-h3 text-white">
-                  Results for <span className="text-primary-hover">“{activeQuery}”</span>
+                  <Tr s={"Results for"} />{' '}<span className="text-primary-hover">“{activeQuery}”</span>
                 </p>
               </div>
 
@@ -489,19 +447,18 @@ function SearchContent() {
                  "no results" and "company not found". */
               <div className="rounded-lg border border-danger-line bg-danger-soft p-8 text-center">
                 <AlertCircle className="mx-auto h-7 w-7 text-danger" aria-hidden="true" />
-                <h2 className="mt-4 text-h4 text-rose-200">Unable to complete the search</h2>
+                <h2 className="mt-4 text-h4 text-rose-200"><Tr s={"Unable to complete the search"} /></h2>
                 <p className="mx-auto mt-2 max-w-md text-body-sm leading-relaxed text-fg-secondary">
                   {error}
                 </p>
                 {providerInfo.code && (
                   <p className="mt-2 font-mono text-caption text-fg-subtle">
-                    Reference: {providerInfo.code}
+                    <Tr s={"Reference:"} />{' '}{providerInfo.code}
                   </p>
                 )}
                 <div className="mt-6 flex justify-center">
                   <Button variant="outline" size="md" onClick={() => performSearch(query)}>
-                    Try again
-                  </Button>
+                    <Tr s={"Try again"} /></Button>
                 </div>
               </div>
             ) : (
@@ -509,7 +466,7 @@ function SearchContent() {
                 {filteredResults.length > 0 && (
                   <div>
                     <div className="mb-4 flex items-center justify-between gap-4">
-                      <h2 className="text-label text-fg-subtle">Registry results</h2>
+                      <h2 className="text-label text-fg-subtle"><Tr s={"Registry results"} /></h2>
                       <span className="text-caption tabular text-fg-subtle">
                         {filteredResults.length}
                       </span>
@@ -525,7 +482,7 @@ function SearchContent() {
                 {filteredDemoResults.length > 0 && (
                   <div className="mt-12">
                     <div className="mb-3 flex items-center justify-between gap-4">
-                      <h2 className="text-label text-fg-subtle">Development demo records</h2>
+                      <h2 className="text-label text-fg-subtle"><Tr s={"Development demo records"} /></h2>
                       <span className="text-caption tabular text-fg-subtle">
                         {filteredDemoResults.length}
                       </span>
@@ -533,9 +490,7 @@ function SearchContent() {
                     <p className="mb-4 flex items-start gap-2 text-body-sm leading-relaxed text-amber-300/85">
                       <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       <span>
-                        Sample data for local development. These are NOT real registry
-                        records and are never presented as verified companies.
-                      </span>
+                        <Tr s={"Sample data for local development. These are NOT real registry records and are never presented as verified companies."} /></span>
                     </p>
                     <div className="space-y-3">
                       {filteredDemoResults.map((item) => (
@@ -547,20 +502,19 @@ function SearchContent() {
 
                 {showEmptyState && (
                   /* Zero matches. Calm and intentional, with a real next step. */
-                  <div className="rounded-lg border border-white/[0.07] bg-white/[0.015] px-6 py-16 text-center">
-                    <span className="mx-auto grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] bg-white/[0.04]">
-                      <SearchIcon className="h-5 w-5 text-fg-subtle" aria-hidden="true" />
-                    </span>
-                    <h2 className="mt-5 text-h4 text-white">No matching businesses</h2>
+                  <div className="frl-bevel-wrap" data-fx="scale"><div className="frl-bevel"><div className="frl-bevel-in frl-spot frl-scan px-6 py-12 text-center">
+                    <div aria-hidden="true" className="mx-auto h-44 w-44 sm:h-56 sm:w-56">
+                      <RadarArt />
+                    </div>
+                    <h2 className="mt-5 text-h4 text-white"><Tr s={"No matching businesses"} /></h2>
                     <p className="mx-auto mt-2 max-w-sm text-body-sm leading-relaxed text-fg-subtle">
                       {hasQuery
                         ? `FRL could not find a matching record for “${activeQuery}”.`
                         : 'Enter a company name or registration identifier to search the registry.'}
                     </p>
                     <p className="mx-auto mt-4 max-w-sm text-body-sm text-fg-muted">
-                      Try another business name or identifier.
-                    </p>
-                  </div>
+                      <Tr s={"Try another business name or identifier."} /></p>
+                  </div></div></div>
                 )}
               </>
             )}
@@ -574,9 +528,7 @@ function SearchContent() {
           <p className="flex items-start gap-2.5 py-7 text-caption leading-relaxed text-fg-subtle">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>
-              Registry retrieval is not FRL verification. Records listed as demo data are
-              development samples and are never presented as verified companies.
-            </span>
+              <Tr s={"Registry retrieval is not FRL verification. Records listed as demo data are development samples and are never presented as verified companies."} /></span>
           </p>
         </Container>
       </footer>
@@ -590,7 +542,7 @@ export default function SearchPage() {
       fallback={
         <div className="min-h-screen bg-canvas">
           <Container width="wide">
-            <p className="pt-40 text-body-sm text-fg-subtle">Loading search directory…</p>
+            <p className="pt-40 text-body-sm text-fg-subtle"><Tr s={"Loading search directory…"} /></p>
           </Container>
         </div>
       }

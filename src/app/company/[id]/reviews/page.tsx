@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import Link from 'next/link';
-import { ShieldCheck, MessageSquare, AlertTriangle, Send, User, CornerDownRight, Lock } from 'lucide-react';
+import { MessageSquare, AlertTriangle, Send, User, CornerDownRight, Lock } from 'lucide-react';
 import { MOCK_COMPANIES } from '@/lib/mockData';
 import { PublicReview, Company } from '@/lib/types';
 import { TierBadge } from '../ProfileMotion';
-import { useLanguage, LanguageToggle } from '@/lib/i18n';
+import { useLanguage } from '@/lib/i18n';
 
+import { SiteNav } from '@/components/SiteNav';
+import { Tr } from '@/lib/i18n';
 export default function CompanyReviewsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { t } = useLanguage();
@@ -113,20 +114,7 @@ export default function CompanyReviewsPage({ params }: { params: Promise<{ id: s
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-20">
       {/* Top Navbar */}
-      <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/50 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-indigo-400" />
-            <span className="font-semibold text-lg tracking-tight">FRL</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <LanguageToggle />
-            <Link href={`/company/${id}`} className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
-              {t('reviews.back_to_profile', '← Back to Company Profile')}
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       <main className="pt-28 max-w-4xl mx-auto px-6">
         {/* Header & Title */}
@@ -146,12 +134,12 @@ export default function CompanyReviewsPage({ params }: { params: Promise<{ id: s
               {isOwner ? t('reviews.owner_mode') : t('reviews.guest_mode')}
             </button>
           </div>
-          <h1 className="text-3xl font-bold text-slate-100">{company?.name || 'Company Reviews'}</h1>
+          <h1 data-fx="up" className="frl-display text-[clamp(1.6rem,3.4vw,2.4rem)] leading-tight text-slate-100">{company?.name || 'Company Reviews'}</h1>
           <p className="text-slate-400 text-sm mt-1">{t('reviews.subtitle')}</p>
         </div>
 
         {/* FRL SPEC COMPLIANCE WARNING BANNER */}
-        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-10 text-xs text-amber-200/90 leading-relaxed flex items-start gap-3">
+        <div data-fx="up" className="frl-panel frl-panel-warn mb-10 flex items-start gap-3 p-4 text-xs leading-relaxed text-amber-200/90">
           <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div>
             <strong className="block text-amber-300 font-semibold mb-1">
@@ -162,7 +150,7 @@ export default function CompanyReviewsPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* Section 1: Submit a Public Review Form */}
-        <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-md mb-12">
+        <div data-fx="scale" className="frl-panel frl-spot mb-12 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-indigo-400" />
             {t('reviews.form_title')}
@@ -221,14 +209,14 @@ export default function CompanyReviewsPage({ params }: { params: Promise<{ id: s
         <div className="space-y-6">
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <h2 className="text-xl font-semibold">{t('reviews.list_title')} ({reviews.length})</h2>
-            <span className="text-xs text-slate-400">Lowest Weight Tier</span>
+            <span className="text-xs text-slate-400"><Tr s={"Lowest Weight Tier"} /></span>
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-slate-500 text-sm">Loading reviews...</div>
+            <div className="p-8 text-center text-slate-500 text-sm"><Tr s={"Loading reviews..."} /></div>
           ) : reviews.length === 0 ? (
             /* Neutral Empty State (Must NOT be negative or judgmental per spec) */
-            <div className="p-10 rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 text-center">
+            <div data-fx="up" className="frl-panel p-10 text-center">
               <MessageSquare className="w-10 h-10 text-slate-600 mx-auto mb-3" />
               <h3 className="text-slate-300 font-medium mb-1">{t('reviews.empty_title')}</h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
@@ -239,7 +227,7 @@ export default function CompanyReviewsPage({ params }: { params: Promise<{ id: s
             reviews.map((rev) => (
               <div
                 key={rev.id}
-                className="p-6 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-md space-y-4"
+                data-fx="up" className="frl-panel frl-spot space-y-4 p-6"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
