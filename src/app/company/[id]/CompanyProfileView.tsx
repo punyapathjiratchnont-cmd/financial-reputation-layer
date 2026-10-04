@@ -198,7 +198,7 @@ export function CompanyProfileView({ company }: Props) {
           <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
             <Link
               href="/search"
-              className="text-xs font-semibold text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white"
+              className="inline-flex h-9 items-center rounded-md px-1 text-xs font-semibold text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover"
             >
               Search Companies
             </Link>

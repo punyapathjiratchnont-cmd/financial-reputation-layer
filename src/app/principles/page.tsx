@@ -136,73 +136,77 @@ export default function PrinciplesPage() {
             <span className="text-xs text-slate-400 font-mono">EVIDENCE HIERARCHY</span>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md">
-            <table className="w-full text-left border-collapse">
+          {/* The matrix has four columns and cannot fit a phone. It scrolls inside its
+              own frame rather than being squeezed, and rather than being clipped
+              by an overflow-hidden box that made the last column unreachable. */}
+            <div className="overflow-x-auto rounded-lg border border-white/10 bg-white/[0.03]">
+              <table className="w-full min-w-[34rem] text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/10 bg-white/5 text-xs text-slate-400 font-mono uppercase tracking-wider">
-                  <th className="py-4 px-6">{t('matrix.col_tier')}</th>
-                  <th className="py-4 px-6">{t('matrix.col_source')}</th>
-                  <th className="py-4 px-6">{t('matrix.col_weight')}</th>
-                  <th className="py-4 px-6">{t('matrix.col_method')}</th>
+                  <th className="py-4 pl-4 pr-4 sm:px-6">{t('matrix.col_tier')}</th>
+                  <th className="py-4 pl-4 pr-4 sm:px-6">{t('matrix.col_source')}</th>
+                  <th className="py-4 pl-4 pr-4 sm:px-6">{t('matrix.col_weight')}</th>
+                  <th className="py-4 pl-4 pr-4 sm:px-6">{t('matrix.col_method')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 text-sm text-slate-300">
                 <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="py-5 px-6 font-medium">
+                  <td className="py-5 pl-4 pr-4 sm:px-6 font-medium">
                     <div className="flex items-center gap-2">
                       <TierBadge tier="official" />
                     </div>
                   </td>
-                  <td className="py-5 px-6">
+                  <td className="py-5 pl-4 pr-4 sm:px-6">
                     <span className="text-slate-200 font-medium block">Official Documents</span>
                     <span className="text-xs text-slate-400">{t('matrix.official_source')}</span>
                   </td>
-                  <td className="py-5 px-6">
+                  <td className="py-5 pl-4 pr-4 sm:px-6">
                     <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
                       {t('matrix.official_weight')}
                     </span>
                   </td>
-                  <td className="py-5 px-6 text-xs text-slate-400">
-                    Cryptographic hash / Tax authority verification
+                  <td className="py-5 pl-4 pr-4 sm:px-6 text-xs text-slate-400">
+                    Self-declared documents. FRL records the tier and does not verify the
+                    document against an authority.
                   </td>
                 </tr>
 
                 <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="py-5 px-6 font-medium">
+                  <td className="py-5 pl-4 pr-4 sm:px-6 font-medium">
                     <div className="flex items-center gap-2">
                       <TierBadge tier="counterparty_attested" />
                     </div>
                   </td>
-                  <td className="py-5 px-6">
+                  <td className="py-5 pl-4 pr-4 sm:px-6">
                     <span className="text-slate-200 font-medium block">Counterparty Attestation</span>
                     <span className="text-xs text-slate-400">{t('matrix.counterparty_source')}</span>
                   </td>
-                  <td className="py-5 px-6">
+                  <td className="py-5 pl-4 pr-4 sm:px-6">
                     <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
                       {t('matrix.counterparty_weight')}
                     </span>
                   </td>
-                  <td className="py-5 px-6 text-xs text-slate-400">
+                  <td className="py-5 pl-4 pr-4 sm:px-6 text-xs text-slate-400">
                     Dual digital sign-off / Direct counterparty verification link
                   </td>
                 </tr>
 
                 <tr className="hover:bg-white/[0.02] transition-colors">
-                  <td className="py-5 px-6 font-medium">
+                  <td className="py-5 pl-4 pr-4 sm:px-6 font-medium">
                     <div className="flex items-center gap-2">
                       <TierBadge tier="public_review" />
                     </div>
                   </td>
-                  <td className="py-5 px-6">
+                  <td className="py-5 pl-4 pr-4 sm:px-6">
                     <span className="text-slate-200 font-medium block">Public Review</span>
                     <span className="text-xs text-slate-400">{t('matrix.public_source')}</span>
                   </td>
-                  <td className="py-5 px-6">
+                  <td className="py-5 pl-4 pr-4 sm:px-6">
                     <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/20">
                       {t('matrix.public_weight')}
                     </span>
                   </td>
-                  <td className="py-5 px-6 text-xs text-slate-400">
+                  <td className="py-5 pl-4 pr-4 sm:px-6 text-xs text-slate-400">
                     Qualitative feedback only; strictly isolated from reputation axes
                   </td>
                 </tr>

@@ -106,13 +106,13 @@ export default function Home() {
             <LanguageToggle />
             <Link
               href="/search"
-              className="text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white"
+              className="inline-flex h-9 items-center rounded-md px-1 text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover"
             >
               {t('nav.findCompany', 'Search Companies')}
             </Link>
             <Link
               href="/principles"
-              className="hidden text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white sm:inline"
+              className="hidden h-9 items-center rounded-md px-1 text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover sm:inline-flex"
             >
               {t('nav.principles', 'Principles')}
             </Link>
@@ -509,12 +509,12 @@ export default function Home() {
                 <p className="text-label text-fg-subtle">Product</p>
                 <ul className="mt-3 space-y-2.5">
                   <li>
-                    <Link href="/search" className="text-body-sm text-fg-secondary transition-colors hover:text-white">
+                    <Link href="/search" className="inline-flex min-h-6 items-center rounded-sm text-body-sm text-fg-secondary transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover">
                       Search companies
                     </Link>
                   </li>
                   <li>
-                    <Link href="/company/c1" className="text-body-sm text-fg-secondary transition-colors hover:text-white">
+                    <Link href="/company/c1" className="inline-flex min-h-6 items-center rounded-sm text-body-sm text-fg-secondary transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover">
                       My company profile
                     </Link>
                   </li>
@@ -524,7 +524,7 @@ export default function Home() {
                 <p className="text-label text-fg-subtle">About</p>
                 <ul className="mt-3 space-y-2.5">
                   <li>
-                    <Link href="/principles" className="text-body-sm text-fg-secondary transition-colors hover:text-white">
+                    <Link href="/principles" className="inline-flex min-h-6 items-center rounded-sm text-body-sm text-fg-secondary transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover">
                       Principles
                     </Link>
                   </li>

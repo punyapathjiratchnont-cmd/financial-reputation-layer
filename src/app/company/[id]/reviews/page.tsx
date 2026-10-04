@@ -169,24 +169,36 @@ export default function CompanyReviewsPage({ params }: { params: Promise<{ id: s
           </h2>
           <form onSubmit={handleCreateReview} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">{t('reviews.author_label')}</label>
+              <label
+                htmlFor="frl-review-author"
+                className="mb-1.5 block text-caption font-medium text-fg-secondary"
+              >
+                {t('reviews.author_label')}
+              </label>
               <input
+                id="frl-review-author"
                 type="text"
                 placeholder={t('reviews.author_placeholder')}
                 value={authorName}
                 onChange={(e) => setAuthorName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500/50"
+                className="h-11 w-full rounded-md border border-white/15 bg-black/40 px-3 text-sm text-slate-100 transition-[border-color,background-color] duration-[var(--frl-dur-fast)] placeholder:text-fg-subtle hover:border-white/25 focus:border-primary/60 focus:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-primary/25"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">{t('reviews.content_label')}</label>
+              <label
+                htmlFor="frl-review-content"
+                className="mb-1.5 block text-caption font-medium text-fg-secondary"
+              >
+                {t('reviews.content_label')}
+              </label>
               <textarea
+                id="frl-review-content"
                 rows={3}
                 required
                 placeholder={t('reviews.content_placeholder')}
                 value={reviewText}
                 onChange={(e) => setReviewText(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500/50"
+                className="w-full rounded-md border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-slate-100 transition-[border-color,background-color] duration-[var(--frl-dur-fast)] placeholder:text-fg-subtle hover:border-white/25 focus:border-primary/60 focus:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-primary/25"
               />
             </div>
             <div className="flex items-center justify-between pt-2">

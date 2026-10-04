@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Activity,
   Sliders,
-  Sparkles,
   CheckCircle2,
   AlertTriangle,
   HelpCircle,
@@ -1352,197 +1351,200 @@ export function ReputationEngineView({
               </div>
             </div>
           </div>
-
-          {/* SECTION 6: PROMINENT "VERIFY A COMPANY" CARD */}
-          <div className="p-8 rounded-3xl border border-indigo-500/20 bg-indigo-500/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-extrabold text-slate-100 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
-                  Verify a Company
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Review a company's verified FRL reputation information before doing business.
-                </p>
-              </div>
-
-              <button
-                onClick={() => setActiveTab('verify')}
-                className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 self-start sm:self-auto"
-              >
-                Go to Verification Center <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Quick Verification Input */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={verifyInput}
-                  onChange={(e) => setVerifyInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleVerifyCompanyLookup()}
-                  placeholder="Enter FRL Verification Link or ID (e.g. proof_... or share_...)"
-                  className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/15 rounded-xl text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+{/* Verification entry point.
+              The lookup form itself lives on the Verification Centre tab. It
+              used to be duplicated inline here, which put two copies of the
+              same control on screen and left this one outside the design
+              system. */}
+          <Card tone="base" padding="md">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <ShieldCheck
+                  className="mt-0.5 h-5 w-5 shrink-0 text-primary-hover"
+                  aria-hidden="true"
                 />
+                <div className="min-w-0">
+                  <h3 className="text-h4 text-slate-100">Verify a company</h3>
+                  <p className="mt-1.5 max-w-xl text-body-sm leading-relaxed text-fg-muted">
+                    Check a company&apos;s reputation proof or controlled disclosure link before you
+                    do business with them. FRL reports the record&apos;s real state and shows a
+                    score only when that record is valid.
+                  </p>
+                </div>
               </div>
-
-              <button
-                onClick={() => handleVerifyCompanyLookup()}
-                disabled={verifyingCompany || !verifyInput.trim()}
-                className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shrink-0 flex items-center justify-center gap-2"
+              <Button
+                variant="secondary"
+                onClick={() => setActiveTab('verify')}
+                trailingIcon={<ArrowRight className="h-4 w-4" />}
+                className="shrink-0"
               >
-                {verifyingCompany ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                Verify Company
-              </button>
+                Open verification centre
+              </Button>
             </div>
-
-            {verificationError && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2">
-                <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>{verificationError}</span>
-              </div>
-            )}
-
-            {/* Inline Result Render if Quick Lookup Triggered */}
-            {verificationResult && verificationResult.valid === true && (
-              <div className="p-6 rounded-2xl bg-black/40 border border-white/10 space-y-4 text-left">
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                  <span className="text-xs font-mono text-indigo-400 font-bold uppercase">Verification Lookup Result</span>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    ✓ Verified by FRL
-                  </span>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-xs text-slate-400 block">Business Reputation Score</span>
-                    <span className="text-4xl font-extrabold text-white block mt-1">{verificationResult.reputation?.score || 'N/A'}</span>
-                    {verificationResult.reputation?.level && (
-                      <div className="mt-1">{getLevelBadge(verificationResult.reputation.level)}</div>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-slate-400 space-y-1 sm:text-right">
-                    <div>Status: <strong className="text-slate-200 capitalize">{verificationResult.status}</strong></div>
-                    <div>Verified: <strong className="text-slate-200">{new Date(verificationResult.verifiedAt).toLocaleDateString()}</strong></div>
-                    <div>Expires: <strong className="text-slate-200">{new Date(verificationResult.expiresAt).toLocaleDateString()}</strong></div>
-                  </div>
-                </div>
-
-                {/* Neutral B2B Disclosure Notice */}
-                <p className="text-[11px] text-slate-400 pt-3 border-t border-white/5 leading-relaxed">
-                  FRL verifies the reputation information shown here. This information is intended to support business decisions and does not guarantee future business performance.
-                </p>
-              </div>
-            )}
-          </div>
+          </Card>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* TAB 2: MY REPUTATION (Sections 8, 10, 13)                                 */}
-      {/* ========================================================================= */}
-      {activeTab === 'my_reputation' && (isDemo || realHasData) && scored && (
-        <div className="space-y-8">
-          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
-            <div className="border-b border-white/10 pb-4">
-              <h2 className="text-2xl font-bold text-slate-100">My Business Reputation Details</h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Detailed view of score breakdown, engine factors, historical trend, and AI analytical explanation.
-              </p>
+{activeTab === 'my_reputation' && !scored && (
+        /* No score exists yet.
+           The detail tab used to render nothing at all in this state, which is
+           indistinguishable from a broken page. It now says what is missing and
+           points at the one action that changes it. Nothing here invents a
+           partial score or a provisional trend to fill the space. */
+        <Card tone="base" padding="md">
+          <CardContent className="text-center">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.02]">
+              <Award className="h-6 w-6 text-fg-subtle" aria-hidden="true" />
             </div>
-
-            {/* Score & Level Display */}
-            <div className="grid md:grid-cols-3 gap-6 items-center bg-black/30 p-6 rounded-2xl border border-white/5">
-              <div className="text-center md:text-left space-y-1">
-                <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Engine Computed Score</span>
-                <div className="flex items-baseline justify-center md:justify-start gap-3">
-                  <span className="text-5xl font-extrabold tracking-tight text-white">{scored.score}</span>
-                  <span className="text-sm font-medium text-slate-400">/ 850</span>
-                </div>
-                <div className="pt-1">{getLevelBadge(scored.level)}</div>
-              </div>
-
-              <div className="md:col-span-2 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6">
-                <ScoreHistoryChart history={activeHistory} />
-              </div>
+            <h2 className="mt-4 text-h3 text-slate-100">No reputation to show yet</h2>
+            <p className="mx-auto mt-2 max-w-md text-body-sm leading-relaxed text-fg-muted">
+              FRL has not produced a score for your evidence, so there is no breakdown, no trend
+              and no analysis to display. Nothing is shown here rather than a partial figure.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <Button
+                onClick={() => setActiveTab('dashboard')}
+                icon={<LayoutDashboard className="h-4 w-4" />}
+              >
+                See what is missing
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsModalOpen(true)}
+                icon={<PlusCircle className="h-4 w-4" />}
+              >
+                Add financial evidence
+              </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
 
-            {/* 4 B2B Dimensions Explanations (Section 10) */}
-            <div className="space-y-4 pt-2">
-              <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">
-                Major Reputation Dimensions
-              </h3>
+      {activeTab === 'my_reputation' && scored && (
+        <div className="space-y-6">
+          <Card tone="base" padding="md">
+            <CardHeader>
+              <div>
+                <CardTitle>Your reputation, in detail</CardTitle>
+                <CardDescription>
+                  How the engine scored you, the factors behind that score, and how it has moved
+                  over time.
+                </CardDescription>
+              </div>
+              {isDemo && (
+                <Badge tone="demo" size="sm">
+                  Demo sample
+                </Badge>
+              )}
+            </CardHeader>
 
-              <div className="grid sm:grid-cols-2 gap-4 text-xs">
-                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <strong className="text-slate-200 text-sm">Payment Reliability</strong>
-                    <span className="font-bold text-emerald-400">{b2bDimensions.paymentReliability}</span>
+            <CardContent className="mt-5 space-y-6">
+              <div className="grid gap-6 rounded-md border border-white/[0.06] bg-white/[0.02] p-5 lg:grid-cols-3 lg:items-center">
+                <div className="text-center lg:text-left">
+                  <span className="text-label text-fg-subtle">
+                    {isDemo ? 'Demo score (not real)' : 'Engine score'}
+                  </span>
+                  <div className="mt-1.5 flex items-baseline justify-center gap-2 lg:justify-start">
+                    <span className="text-metric text-white">{scored.score}</span>
+                    <span className="text-body-sm text-fg-muted">/ 850</span>
                   </div>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
-                    Evaluates how consistently financial obligations and supplier invoices are paid on time.
-                  </p>
+                  <div className="mt-2 flex justify-center lg:justify-start">
+                    {getLevelBadge(scored.level)}
+                  </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <strong className="text-slate-200 text-sm">Business Reliability</strong>
-                    <span className="font-bold text-indigo-400">{b2bDimensions.businessReliability}</span>
-                  </div>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
-                    Signals derived from operational transaction behavior and counterparty consistency.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <strong className="text-slate-200 text-sm">Financial Stability</strong>
-                    <span className="font-bold text-slate-200">{b2bDimensions.financialStability}</span>
-                  </div>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
-                    Signals related to revenue consistency, expense coverage, and liquid savings buffers.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <strong className="text-slate-200 text-sm">Transaction History</strong>
-                    <span className="font-bold text-amber-400">{b2bDimensions.transactionHistory}</span>
-                  </div>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
-                    Signals derived from historical transaction activity, account duration, and bounced checks.
-                  </p>
+                <div className="lg:col-span-2 lg:border-l lg:border-white/[0.06] lg:pl-6">
+                  <ScoreHistoryChart history={activeHistory} />
                 </div>
               </div>
-            </div>
 
-            {/* SECTION 8 & 13: WHY IS MY SCORE LIKE THIS? (AI REPUTATION ANALYSIS) */}
-            <div className="pt-8 border-t border-white/10 space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-indigo-400" />
-                  <h3 className="text-xl font-bold text-slate-100">Why is my score like this?</h3>
+              <div className="space-y-3">
+                <h3 className="text-label text-fg-subtle">What sits behind the score</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    {
+                      label: 'Payment Reliability',
+                      value: b2bDimensions.paymentReliability,
+                      copy: 'How consistently financial obligations and supplier invoices are paid on time.',
+                      accent: 'text-emerald-400',
+                    },
+                    {
+                      label: 'Business Reliability',
+                      value: b2bDimensions.businessReliability,
+                      copy: 'Derived from counterparty attestations and official claims, never from personal transaction behaviour.',
+                      accent: 'text-primary-hover',
+                    },
+                    {
+                      label: 'Financial Stability',
+                      value: b2bDimensions.financialStability,
+                      copy: 'Revenue consistency, expense coverage and liquid savings buffers.',
+                      accent: 'text-slate-200',
+                    },
+                    {
+                      label: 'Transaction History',
+                      value: b2bDimensions.transactionHistory,
+                      copy: 'Historical transaction activity, account duration and returned payments.',
+                      accent: 'text-demo',
+                    },
+                  ].map((dimension) => (
+                    <div
+                      key={dimension.label}
+                      className="rounded-md border border-white/[0.08] bg-white/[0.02] p-4"
+                    >
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h4 className="text-body-sm font-semibold text-slate-100">
+                          {dimension.label}
+                        </h4>
+                        <span className={`text-body-sm font-semibold ${dimension.accent}`}>
+                          {dimension.value}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-caption leading-relaxed text-fg-muted">
+                        {dimension.copy}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-                <span className="text-[11px] font-mono px-2.5 py-1 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                  Reputation Analysis
-                </span>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Disclaimer */}
-              <div className="p-3.5 rounded-xl bg-slate-900 border border-white/10 text-[11px] text-slate-400 flex items-start gap-2">
-                <FileText className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                <span>
-                  AI-generated insights are informational and based strictly on the financial data available in your profile. They do not determine your reputation score or constitute financial, lending, or investment decisions.
-                </span>
+          {/* AI reputation analysis.
+              The panel below is only ever populated from a real response. While
+              it is loading, errored or rate-limited the result is empty and the
+              owner is told so — the score above never depends on it, and no
+              substitute conclusion is written when the service is unavailable. */}
+          <Card tone="base" padding="md">
+            <CardHeader>
+              <div>
+                <CardTitle>Why is my score like this?</CardTitle>
+                <CardDescription>
+                  An interpretation of the evidence you submitted, written by the FRL analysis
+                  service.
+                </CardDescription>
+              </div>
+              <Badge tone="neutral" size="sm">
+                AI analysis
+              </Badge>
+            </CardHeader>
+
+            <CardContent className="mt-5 space-y-5">
+              <div className="flex items-start gap-2.5 rounded-md border border-white/[0.08] bg-white/[0.02] p-4">
+                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary-hover" aria-hidden="true" />
+                <p className="text-caption leading-relaxed text-fg-muted">
+                  Generated commentary is informational and based strictly on the financial data in
+                  your profile. It does not determine your reputation score and is not financial,
+                  lending or investment advice.
+                </p>
               </div>
 
               {aiLoading && (
-                <div className="p-8 text-center text-xs text-slate-400 space-y-2">
-                  <RefreshCw className="w-5 h-5 text-indigo-400 animate-spin mx-auto" />
-                  <p>Analyzing reputation factors...</p>
+                <div className="flex flex-col items-center gap-2 py-8 text-body-sm text-fg-muted">
+                  <RefreshCw
+                    className="h-5 w-5 animate-spin text-primary-hover motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                  <p>Analysing your reputation factors…</p>
                 </div>
               )}
 
@@ -1550,58 +1552,73 @@ export function ReputationEngineView({
                   shown and no request is retried automatically: the retry is a
                   deliberate user action. */}
               {aiError && !aiLoading && (
-                <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                <div className="flex flex-col gap-3 rounded-md border border-demo-line bg-demo-soft p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <strong className="block uppercase tracking-wider">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-demo" aria-hidden="true" />
+                    <div>
+                      <h4 className="text-body-sm font-semibold text-slate-100">
                         Analysis unavailable
-                      </strong>
-                      <span className="text-amber-300/90">{aiError}</span>
+                      </h4>
+                      <p className="mt-1 text-body-sm leading-relaxed text-fg-muted">{aiError}</p>
                     </div>
                   </div>
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => fetchAIAnalysis()}
-                    className="shrink-0 self-start sm:self-auto px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 hover:bg-amber-500/25 text-xs font-semibold transition-colors"
+                    className="shrink-0"
                   >
                     Try again
-                  </button>
+                  </Button>
                 </div>
               )}
 
               {analysis && !aiLoading && (
-                <div className="space-y-6 text-xs">
-                  <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-2">
-                    <h4 className="font-bold text-indigo-300 uppercase tracking-wider text-[11px]">Executive Summary</h4>
-                    <p className="text-slate-200 text-sm leading-relaxed">{analysis.summary}</p>
+                <div className="space-y-5">
+                  <div className="rounded-md border border-white/[0.08] bg-white/[0.02] p-4">
+                    <h4 className="text-label text-fg-subtle">Summary</h4>
+                    <p className="mt-2 text-body leading-relaxed text-slate-200">
+                      {analysis.summary}
+                    </p>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="p-5 rounded-2xl bg-black/20 border border-emerald-500/20 space-y-3">
-                      <h4 className="font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Verified Strengths
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-md border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
+                      <h4 className="flex items-center gap-1.5 text-label text-emerald-400">
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        Reported strengths
                       </h4>
-                      <ul className="space-y-2 text-slate-300">
-                        {analysis.strengths.map((str, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-emerald-400 font-bold">✓</span>
-                            <span>{str}</span>
+                      <ul className="mt-2.5 space-y-2">
+                        {analysis.strengths.map((strength) => (
+                          <li
+                            key={strength}
+                            className="flex items-start gap-2 text-body-sm leading-relaxed text-slate-300"
+                          >
+                            <Check
+                              className="mt-1 h-3 w-3 shrink-0 text-emerald-400"
+                              aria-hidden="true"
+                            />
+                            <span>{strength}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
 
-                    <div className="p-5 rounded-2xl bg-black/20 border border-amber-500/20 space-y-3">
-                      <h4 className="font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <AlertTriangle className="w-4 h-4" />
-                        Areas to Monitor
+                    <div className="rounded-md border border-demo-line bg-demo-soft p-4">
+                      <h4 className="flex items-center gap-1.5 text-label text-demo">
+                        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                        Areas to monitor
                       </h4>
-                      <ul className="space-y-2 text-slate-300">
-                        {analysis.concerns.map((con, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="text-amber-400 font-bold">△</span>
-                            <span>{con}</span>
+                      <ul className="mt-2.5 space-y-2">
+                        {analysis.concerns.map((concern) => (
+                          <li
+                            key={concern}
+                            className="flex items-start gap-2 text-body-sm leading-relaxed text-slate-300"
+                          >
+                            <span aria-hidden="true" className="mt-1 text-demo">
+                              △
+                            </span>
+                            <span>{concern}</span>
                           </li>
                         ))}
                       </ul>
@@ -1609,7 +1626,21 @@ export function ReputationEngineView({
                   </div>
                 </div>
               )}
-            </div>
+
+              {!analysis && !aiLoading && !aiError && (
+                <p className="py-6 text-center text-body-sm text-fg-subtle">
+                  No analysis has been produced for this evidence.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="flex items-start gap-2.5 rounded-md border border-white/[0.08] bg-white/[0.02] p-4">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-hover" aria-hidden="true" />
+            <p className="text-caption leading-relaxed text-fg-muted">
+              This signal is generated from the financial and transaction behaviour available to
+              FRL. It supports a business decision; it does not guarantee future performance.
+            </p>
           </div>
         </div>
       )}

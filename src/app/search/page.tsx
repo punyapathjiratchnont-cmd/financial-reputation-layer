@@ -339,13 +339,13 @@ function SearchContent() {
             <LanguageToggle />
             <Link
               href="/search"
-              className="text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white"
+              className="inline-flex h-9 items-center rounded-md px-1 text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover"
             >
               {t('nav.findCompany', 'Search Companies')}
             </Link>
             <Link
               href="/principles"
-              className="hidden text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white sm:inline"
+              className="hidden h-9 items-center rounded-md px-1 text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover sm:inline-flex"
             >
               {t('nav.principles', 'Principles')}
             </Link>
