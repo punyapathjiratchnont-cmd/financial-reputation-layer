@@ -1,218 +1,259 @@
-import { Company } from './types';
-import { MOCK_COMPANIES } from './mockData';
-
 /**
- * Resolves a company profile by ID.
- * 1. Checks local demo/mock companies (c1, c2, c3, c4).
- * 2. If ID starts with 'oc_' (OpenCorporates real company), fetches or constructs a normalized Company object.
- * 
- * STRICT PRODUCT RULE:
- * Real company identity data DOES NOT automatically create a Reputation Score.
- * NO EVIDENCE -> NO REPUTATION SCORE (reputationScore: null, dimensions: Insufficient Data).
+ * Resolves a company profile by id.
+ *
+ * ABSOLUTE RULE (FRL): REAL DATA ONLY.
+ *
+ * A real company profile is produced ONLY when the registry provider returned a
+ * record that FRL could read. There is no fallback that invents a company, a
+ * registry description, provenance, or a retrieval timestamp. When the provider
+ * cannot confirm the company, this service returns `not_found` or an explicit
+ * error — never a synthetic company.
+ *
+ * STRICT PRODUCT RULE: real company identity data does NOT create a reputation
+ * score. Every dimension below is `Insufficient Data` with a null score.
  */
-export async function getCompanyById(id: string): Promise<Company | null> {
-  // 1. Check local demo profiles
-  const demoMatch = MOCK_COMPANIES.find((c) => c.id === id);
-  if (demoMatch) {
-    return demoMatch;
-  }
 
-  // 2. Handle Real OpenCorporates ID (format: oc_{jurisdiction_code}_{company_number})
-  if (id.startsWith('oc_')) {
-    const parts = id.split('_');
-    if (parts.length >= 3) {
-      const jurisdictionCode = parts[1];
-      const companyNumber = parts.slice(2).join('_');
+import { lookupRegistryCompany, type RegistryClientOptions } from './companyRegistry';
+import type { NormalizedRegistryCompany, RegistryErrorCode } from './companyIdentityAdapter';
+import { MOCK_COMPANIES } from './mockData';
+import type {
+  Company,
+  CompanySearchResult,
+  DimensionDetail,
+  HistoryEventItem,
+} from './types';
 
-      const apiToken = process.env.OPENCORPORATES_API_TOKEN;
+export type CompanyLookupResult =
+  | { status: 'found'; company: Company }
+  | { status: 'not_found' }
+  | { status: 'error'; code: RegistryErrorCode; message: string };
 
-      if (apiToken && apiToken !== 'your_opencorporates_api_token_here') {
-        try {
-          const url = `https://api.opencorporates.com/v0.2/companies/${jurisdictionCode}/${companyNumber}?api_token=${encodeURIComponent(
-            apiToken
-          )}`;
-          const res = await fetch(url, { headers: { Accept: 'application/json' } });
+const REGISTRY_SOURCE_LABEL = 'OpenCorporates (public registry)';
 
-          if (res.ok) {
-            const data = await res.json();
-            const comp = data?.results?.company;
-            if (comp) {
-              return mapOpenCorpToCompany(id, comp);
-            }
-          }
-        } catch (err) {
-          // Fallback to normalized identity model if fetch fails
-        }
-      }
-
-      // Construct clean normalized CompanyIdentity model fallback for oc_ ID
-      const country = jurisdictionCode.toUpperCase();
-      const fallbackName = companyNumber
-        .replace(/[^a-zA-Z0-9]/g, ' ')
-        .toUpperCase();
-
-      return {
-        id,
-        name: `${country} Corporate Entity (${companyNumber})`,
-        registration_no: companyNumber,
-        industry: 'Corporate Registry Entity',
-        founded_date: 'N/A',
-        country,
-        isClaimed: false, // REAL SEARCH RESULTS ARE ALWAYS UNCLAIMED
-        logo: '🏢',
-        overview: `Official registered corporate entity recorded in the ${country} public business registry.`,
-        reputationScore: null, // STRICT RULE: NO EVIDENCE -> NO SCORE
-        reputationLevel: null,
-        dimensions: {
-          paymentReliability: {
-            score: null,
-            label: 'Insufficient Data',
-            explanation: 'No direct private banking transaction stream submitted to FRL.',
-            isSufficient: false,
-          },
-          businessReliability: {
-            score: null,
-            label: 'Insufficient Data',
-            explanation: 'No verified FRL counterparty attestations or trade claims submitted.',
-            isSufficient: false,
-          },
-          financialStability: {
-            score: null,
-            label: 'Insufficient Data',
-            explanation: 'Public corporate filings are not linked to private FRL calculation engine.',
-            isSufficient: false,
-          },
-          transactionHistory: {
-            score: null,
-            label: 'Insufficient Data',
-            explanation: 'No banking transaction history recorded with FRL.',
-            isSufficient: false,
-          },
-        },
-        quickSummary: {
-          strengths: ['Registered with official public corporate registry'],
-          thingsToConsider: [
-            'This profile is created from public registry data and has NOT been claimed by company officers.',
-            'Private financial streams and counterparty attestations are not linked to FRL.',
-          ],
-          dataStatus: `Public Data Only (OpenCorporates - ${country})`,
-        },
-        trackRecord: {
-          achievements: [],
-          relationships: [],
-          performance: [],
-        },
-        reputationHistory: [
-          {
-            year: new Date().getFullYear().toString(),
-            event: 'Public identity record retrieved from OpenCorporates.',
-            source: 'OpenCorporates Registry',
-          },
-        ],
-        scoreHistory: [],
-        currentIssues: {
-          verifiedIssues: [],
-          informationGaps: [
-            {
-              title: 'Unclaimed Profile',
-              detail:
-                'This profile has not been claimed by company representatives. Direct private banking streams and verified counterparty attestations are not linked to FRL.',
-            },
-          ],
-          aiAnalysis: [],
-        },
-        sourceInfo: {
-          provider: 'OpenCorporates',
-          url: `https://opencorporates.com/companies/${jurisdictionCode}/${companyNumber}`,
-          retrievedAt: new Date().toISOString(),
-        },
-      };
-    }
-  }
-
-  return null;
+function insufficient(explanation: string): DimensionDetail {
+  return {
+    score: null,
+    label: 'Insufficient Data',
+    explanation,
+    isSufficient: false,
+  };
 }
 
-function mapOpenCorpToCompany(id: string, comp: any): Company {
-  const country = comp.jurisdiction_code ? comp.jurisdiction_code.toUpperCase() : 'Global';
-  const incDate = comp.incorporation_date || 'N/A';
-  const year = incDate !== 'N/A' ? incDate.substring(0, 4) : 'N/A';
+/**
+ * A display label built only from real registry values.
+ * Falls back to the registration number and then the id — never a generated name.
+ */
+export function registryDisplayName(company: NormalizedRegistryCompany): string {
+  if (company.legalName) return company.legalName;
+  if (company.registrationNumber) {
+    return `${company.registrationNumber} (${company.jurisdictionCode ?? 'jurisdiction not reported'})`;
+  }
+  return company.id;
+}
 
+/** Composes a factual summary. Every clause is conditional on a real field. */
+function buildOverview(company: NormalizedRegistryCompany): string | undefined {
+  const sentences: string[] = [];
+
+  if (company.legalName && company.registrationNumber) {
+    sentences.push(
+      `${company.legalName} is recorded in the ${company.jurisdictionCode} jurisdiction with registration number ${company.registrationNumber}.`
+    );
+  } else if (company.legalName) {
+    sentences.push(
+      `${company.legalName} is recorded in the ${company.jurisdictionCode} jurisdiction.`
+    );
+  } else {
+    sentences.push(
+      `This corporate registry record (${company.id}) does not report a legal name.`
+    );
+  }
+
+  if (company.companyStatus) {
+    sentences.push(`The registry reports the company status as ${company.companyStatus}.`);
+  }
+  if (company.entityType) {
+    sentences.push(`The registry reports the entity type as ${company.entityType}.`);
+  }
+  if (company.incorporationDate) {
+    sentences.push(`The registry reports an incorporation date of ${company.incorporationDate}.`);
+  }
+  if (company.dissolutionDate) {
+    sentences.push(`The registry reports a dissolution date of ${company.dissolutionDate}.`);
+  }
+
+  sentences.push(
+    'This record was retrieved from a public registry. It has not been verified by FRL.'
+  );
+
+  return sentences.join(' ');
+}
+
+/** History entries are only ever built from dates the registry reported. */
+function buildHistory(company: NormalizedRegistryCompany): HistoryEventItem[] {
+  const history: HistoryEventItem[] = [];
+  if (company.incorporationDate) {
+    history.push({
+      year: company.incorporationDate.slice(0, 4) || company.incorporationDate,
+      event: `Incorporated on ${company.incorporationDate}, per the public registry record.`,
+      source: REGISTRY_SOURCE_LABEL,
+    });
+  }
+  if (company.dissolutionDate) {
+    history.push({
+      year: company.dissolutionDate.slice(0, 4) || company.dissolutionDate,
+      event: `Dissolved on ${company.dissolutionDate}, per the public registry record.`,
+      source: REGISTRY_SOURCE_LABEL,
+    });
+  }
+  return history;
+}
+
+/**
+ * Maps a confirmed registry record onto the profile model.
+ *
+ * Absent registry values stay `undefined`. Nothing is defaulted, and the
+ * reputation fields are always null/insufficient because registry identity is
+ * not evidence.
+ */
+export function toCompanyProfile(company: NormalizedRegistryCompany): Company {
   return {
-    id,
-    name: comp.name || 'Registered Corporate Entity',
-    registration_no: comp.company_number || 'N/A',
-    industry: comp.company_type || 'Corporate Entity',
-    founded_date: incDate,
-    country,
-    isClaimed: false, // ALWAYS UNCLAIMED BY DEFAULT
-    logo: '🏢',
-    officialWebsite: comp.website_url || undefined,
-    overview: `${comp.name} is a registered corporate entity (${comp.company_type || 'Business'}) recorded in the ${country} corporate registry.`,
-    reputationScore: null, // STRICT RULE: NO EVIDENCE -> NO SCORE
+    id: company.id,
+    name: registryDisplayName(company),
+    registration_no: company.registrationNumber ?? undefined,
+    industry: company.entityType ?? undefined,
+    founded_date: company.incorporationDate ?? undefined,
+    country: company.country ?? undefined,
+    jurisdictionCode: company.jurisdictionCode ?? undefined,
+    companyStatus: company.companyStatus ?? undefined,
+    incorporationDate: company.incorporationDate ?? undefined,
+    dissolutionDate: company.dissolutionDate ?? undefined,
+    registeredAddress: company.registeredAddress ?? undefined,
+    openCorporatesId: company.openCorporatesId ?? undefined,
+    officialWebsite: company.officialWebsite ?? undefined,
+    // A registry record is never an FRL-claimed profile.
+    isClaimed: false,
+    sourceInfo: company.source,
+    overview: buildOverview(company),
+    // STRICT RULE: NO EVIDENCE -> NO REPUTATION SCORE
+    reputationScore: null,
     reputationLevel: null,
     dimensions: {
-      paymentReliability: {
-        score: null,
-        label: 'Insufficient Data',
-        explanation: 'No direct private banking transaction stream submitted to FRL.',
-        isSufficient: false,
-      },
-      businessReliability: {
-        score: null,
-        label: 'Insufficient Data',
-        explanation: 'No verified FRL counterparty attestations or trade claims submitted.',
-        isSufficient: false,
-      },
-      financialStability: {
-        score: null,
-        label: 'Insufficient Data',
-        explanation: 'Public corporate filings are not linked to private FRL calculation engine.',
-        isSufficient: false,
-      },
-      transactionHistory: {
-        score: null,
-        label: 'Insufficient Data',
-        explanation: 'No banking transaction history recorded with FRL.',
-        isSufficient: false,
-      },
+      paymentReliability: insufficient(
+        'No verified business payment records have been submitted to FRL for this company.'
+      ),
+      businessReliability: insufficient(
+        'No verified counterparty attestations or business trade claims have been submitted to FRL.'
+      ),
+      financialStability: insufficient(
+        'No verified financial filings have been linked to this FRL profile.'
+      ),
+      transactionHistory: insufficient(
+        'No banking transaction history has been recorded with FRL.'
+      ),
     },
     quickSummary: {
-      strengths: [`Active status in ${country} corporate registry (${comp.current_status || 'Active'})`],
+      strengths: [],
       thingsToConsider: [
-        'This profile is created from public registry data and has NOT been claimed by company representatives.',
-        'Private financial streams and counterparty attestations are not linked to FRL.',
+        'This profile is built from a public registry record and has not been claimed by company officers.',
+        'Retrieving a registry record is not an FRL verification, and registry identity data is not reputation evidence.',
       ],
-      dataStatus: `Public Data Only (OpenCorporates - ${country})`,
+      dataStatus: `Public registry record (${company.source.provider}) — not verified by FRL`,
     },
-    trackRecord: {
-      achievements: [],
-      relationships: [],
-      performance: [],
-    },
-    reputationHistory: [
-      {
-        year: year,
-        event: `Incorporated in ${country} corporate registry (${comp.company_type || 'Company'}).`,
-        source: 'OpenCorporates Registry',
-      },
-    ],
+    trackRecord: { achievements: [], relationships: [], performance: [] },
+    reputationHistory: buildHistory(company),
     scoreHistory: [],
     currentIssues: {
       verifiedIssues: [],
       informationGaps: [
         {
-          title: 'Unclaimed Profile',
+          title: 'Unclaimed profile',
           detail:
-            'This profile has not been claimed by company representatives. Direct private banking streams and verified counterparty attestations are not linked to FRL.',
+            'No company representative has claimed this profile. Verified counterparty attestations and private financial streams are not linked to FRL.',
+        },
+        {
+          title: 'Not verified by FRL',
+          detail:
+            'The identity data on this page was retrieved from a public registry and has not been independently verified by FRL.',
         },
       ],
       aiAnalysis: [],
     },
-    sourceInfo: {
-      provider: 'OpenCorporates',
-      url: comp.opencorporates_url || undefined,
-      retrievedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Resolves a company by id.
+ *
+ * - Demo ids (`c1`..`c4`) resolve from the local development dataset.
+ * - Real ids (`oc_<jurisdiction>_<number>`) resolve ONLY when the registry
+ *   provider confirms the company.
+ * - Anything else, and every provider failure, yields `not_found` or an
+ *   explicit error. No fabricated company is ever returned.
+ */
+export async function getCompanyById(
+  id: string,
+  options: RegistryClientOptions = {}
+): Promise<CompanyLookupResult> {
+  const demoMatch = MOCK_COMPANIES.find((company) => company.id === id);
+  if (demoMatch) {
+    return { status: 'found', company: demoMatch };
+  }
+
+  if (!id.startsWith('oc_')) {
+    return { status: 'not_found' };
+  }
+
+  const lookup = await lookupRegistryCompany(id, options);
+
+  if (!lookup.ok) {
+    if (lookup.code === 'REGISTRY_COMPANY_NOT_FOUND') {
+      return { status: 'not_found' };
+    }
+    return { status: 'error', code: lookup.code, message: lookup.message };
+  }
+
+  return { status: 'found', company: toCompanyProfile(lookup.company) };
+}
+
+/** Maps a confirmed registry record onto a search result. */
+export function toSearchResult(company: NormalizedRegistryCompany): CompanySearchResult {
+  return {
+    id: company.id,
+    name: registryDisplayName(company),
+    businessType: company.entityType ?? undefined,
+    industry: company.entityType ?? undefined,
+    // Only set when the registry explicitly reported a country.
+    country: company.country ?? undefined,
+    jurisdictionCode: company.jurisdictionCode ?? undefined,
+    registrationNumber: company.registrationNumber ?? undefined,
+    officialWebsite: company.officialWebsite ?? undefined,
+    profileStatus: 'unclaimed',
+    source: company.source,
+  };
+}
+
+/**
+ * Maps a local development company onto a search result.
+ * These are always labelled as internal demo data, never as registry records.
+ */
+export function demoToSearchResult(company: Company): CompanySearchResult {
+  return {
+    id: company.id,
+    name: company.name,
+    businessType: company.industry,
+    industry: company.industry,
+    country: company.country,
+    jurisdictionCode: company.jurisdictionCode,
+    registrationNumber: company.registration_no,
+    officialWebsite: company.officialWebsite,
+    profileStatus: company.isClaimed ? 'claimed' : 'unclaimed',
+    reputationScore: company.reputationScore ?? null,
+    reputationLevel: company.reputationLevel ?? null,
+    source: {
+      provider: 'FRL Development Demo Directory',
+      sourceType: 'internal_demo',
+      verificationStatus: 'unverified',
     },
   };
 }

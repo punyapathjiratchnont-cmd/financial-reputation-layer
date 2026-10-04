@@ -1,139 +1,124 @@
 import { NextResponse } from 'next/server';
 import { MOCK_COMPANIES } from '@/lib/mockData';
-import { CompanySearchResult } from '@/lib/types';
+import {
+  REGISTRY_PROVIDER,
+  partitionSearchResults,
+} from '@/lib/companyIdentityAdapter';
+import { searchRegistryCompanies } from '@/lib/companyRegistry';
+import { demoToSearchResult, toSearchResult } from '@/lib/realCompanyService';
+import type { CompanySearchResult } from '@/lib/types';
+
+const MIN_QUERY_LENGTH = 2;
+const MAX_QUERY_LENGTH = 100;
+
+/** HTTP status for a provider failure, so a failure is never a 200 "empty result". */
+function httpStatusFor(status: string): number {
+  switch (status) {
+    case 'provider_unavailable':
+      return 503;
+    case 'provider_error':
+    case 'malformed_response':
+      return 502;
+    default:
+      return 200;
+  }
+}
+
+function emptyBody(query: string) {
+  return {
+    query,
+    provider: REGISTRY_PROVIDER,
+    resultsCount: 0,
+    results: [] as CompanySearchResult[],
+    demoResults: [] as CompanySearchResult[],
+  };
+}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const rawQuery = searchParams.get('q') || '';
-    const query = rawQuery.trim();
+    const query = (searchParams.get('q') || '').trim();
 
-    // 1. Input Validation
-    if (!query || query.length < 2) {
+    if (query.length < MIN_QUERY_LENGTH || query.length > MAX_QUERY_LENGTH) {
       return NextResponse.json(
-        { error: 'Search query must be at least 2 characters.', results: [] },
-        { status: 400 }
-      );
-    }
-
-    if (query.length > 100) {
-      return NextResponse.json(
-        { error: 'Search query is too long.', results: [] },
+        {
+          error:
+            query.length < MIN_QUERY_LENGTH
+              ? `Search query must be at least ${MIN_QUERY_LENGTH} characters.`
+              : `Search query must be at most ${MAX_QUERY_LENGTH} characters.`,
+          code: 'INVALID_QUERY',
+          ...emptyBody(query),
+        },
         { status: 400 }
       );
     }
 
     const lowerQuery = query.toLowerCase();
 
-    // 2. Local Demo Companies Match (Always preserved)
-    const demoMatches: CompanySearchResult[] = MOCK_COMPANIES.filter(
-      (c) =>
-        c.name.toLowerCase().includes(lowerQuery) ||
-        c.registration_no.toLowerCase().includes(lowerQuery) ||
-        c.industry.toLowerCase().includes(lowerQuery)
-    ).map((c) => ({
-      id: c.id,
-      name: c.name,
-      businessType: c.industry,
-      industry: c.industry,
-      country: c.country || 'Thailand',
-      registrationNumber: c.registration_no,
-      profileStatus: c.isClaimed ? 'claimed' : 'unclaimed',
-      source: {
-        provider: 'FRL Directory',
-        url: undefined,
-      },
-    }));
+    // Local development records. These are never presented as registry data.
+    const demoMatches = MOCK_COMPANIES.filter((company) => {
+      const haystack = [company.name, company.registration_no, company.industry]
+        .filter((value): value is string => typeof value === 'string')
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(lowerQuery);
+    }).map(demoToSearchResult);
 
-    // 3. Check Server-Side OpenCorporates API Token (STRICTLY SERVER-SIDE)
-    const apiToken = process.env.OPENCORPORATES_API_TOKEN;
+    const outcome = await searchRegistryCompanies(query);
 
-    if (!apiToken || apiToken === 'your_opencorporates_api_token_here') {
-      // Fallback behavior when API token is not configured
+    if (outcome.status === 'ok') {
+      // Confirmed registry records always win over same-name demo records.
+      const { results, demoResults } = partitionSearchResults(
+        outcome.results,
+        demoMatches
+      );
+
       return NextResponse.json({
         query,
-        results: demoMatches,
-        configured: false,
-        provider: 'OpenCorporates',
-        message:
-          demoMatches.length > 0
-            ? 'OpenCorporates API token not configured. Showing matching demo records.'
-            : 'Real company search provider is currently not configured.',
+        provider: REGISTRY_PROVIDER,
+        status: 'ok',
+        resultsCount: results.length,
+        results: results.map(toSearchResult),
+        demoResults,
       });
     }
 
-    // 4. Call OpenCorporates API Server-Side
-    const openCorpUrl = `https://api.opencorporates.com/v0.2/companies/search?q=${encodeURIComponent(
-      query
-    )}&api_token=${encodeURIComponent(apiToken)}`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-
-    const openCorpRes = await fetch(openCorpUrl, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!openCorpRes.ok) {
-      // Graceful error handling - return demo matches if available without breaking
+    if (outcome.status === 'not_configured') {
+      // Demo records stay available for development, but they are returned in
+      // their own array and never as registry results.
       return NextResponse.json({
         query,
-        results: demoMatches,
-        configured: true,
-        provider: 'OpenCorporates',
-        message: 'OpenCorporates API temporarily unavailable. Showing local matches.',
+        provider: REGISTRY_PROVIDER,
+        status: 'not_configured',
+        code: outcome.code,
+        message: outcome.message,
+        resultsCount: 0,
+        results: [],
+        demoResults: demoMatches,
       });
     }
 
-    const data = await openCorpRes.json();
-    const companiesList = data?.results?.companies || [];
-
-    // 5. Normalize OpenCorporates Search Results
-    const realResults: CompanySearchResult[] = companiesList.slice(0, 10).map((item: any) => {
-      const comp = item.company || {};
-      const jCode = comp.jurisdiction_code ? comp.jurisdiction_code.toLowerCase() : 'global';
-      const cNumber = comp.company_number || Math.random().toString(36).substring(7);
-
-      return {
-        id: `oc_${jCode}_${cNumber}`,
-        name: comp.name || 'Unknown Corporate Entity',
-        businessType: comp.company_type || 'Corporate Entity',
-        jurisdictionCode: comp.jurisdiction_code ? comp.jurisdiction_code.toUpperCase() : undefined,
-        registrationNumber: comp.company_number || undefined,
-        country: comp.jurisdiction_code ? comp.jurisdiction_code.toUpperCase() : 'Global',
-        profileStatus: 'unclaimed', // REAL SEARCH RESULTS ARE ALWAYS UNCLAIMED BY DEFAULT
-        source: {
-          provider: 'OpenCorporates',
-          url: comp.opencorporates_url || undefined,
-        },
-      };
-    });
-
-    // Merge demo matches + real OpenCorporates results (deduplicate by id or name)
-    const combinedResults = [...demoMatches];
-    realResults.forEach((r) => {
-      if (!combinedResults.some((d) => d.name.toLowerCase() === r.name.toLowerCase())) {
-        combinedResults.push(r);
-      }
-    });
-
-    return NextResponse.json({
-      query,
-      results: combinedResults,
-      configured: true,
-      provider: 'OpenCorporates',
-    });
-  } catch (err: any) {
-    // Handle network / timeout errors safely without leaking internal details
+    // Provider failure: no results of any kind are returned, so a failure can
+    // never be mistaken for a company that simply has no records.
     return NextResponse.json(
       {
-        error: 'Unable to search real company records right now.',
+        query,
+        provider: REGISTRY_PROVIDER,
+        status: outcome.status,
+        code: outcome.code,
+        message: outcome.message,
+        resultsCount: 0,
         results: [],
+        demoResults: [],
+      },
+      { status: httpStatusFor(outcome.status) }
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        error: 'Unable to search company records right now.',
+        code: 'SEARCH_FAILED',
+        ...emptyBody(''),
       },
       { status: 500 }
     );

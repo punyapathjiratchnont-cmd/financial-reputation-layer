@@ -49,9 +49,34 @@ export interface AIAnalysisIssueItem {
   detail: string;
 }
 
+/**
+ * Where a data point came from.
+ *
+ * 'public_registry' means the value was retrieved from a public corporate
+ * registry provider (OpenCorporates). It does NOT mean FRL verified it.
+ */
+export type SourceType =
+  | 'public_registry'
+  | 'filing'
+  | 'company_provided'
+  | 'counterparty'
+  | 'internal_demo';
+
+/**
+ * Whether FRL itself has verified this record.
+ *
+ * Registry retrieval is NOT verification. Every record returned by a registry
+ * provider starts as 'unverified' and may only become 'verified' once FRL has
+ * actually performed a verification step against the authoritative source.
+ */
+export type VerificationStatus = 'unverified' | 'verified' | 'expired';
+
 export interface CompanySourceInfo {
   provider: string; // e.g. 'OpenCorporates'
+  sourceType: SourceType;
+  verificationStatus: VerificationStatus;
   url?: string;
+  /** Only set when the record was ACTUALLY retrieved. Never invented. */
   retrievedAt?: string;
 }
 
@@ -61,9 +86,18 @@ export interface CompanyIdentity {
   legalName?: string;
   businessType?: string;
   industry?: string;
+  /**
+   * A real country name ONLY when the source explicitly supplies one.
+   * A jurisdiction code (e.g. 'gb') must never be written into this field.
+   */
   country?: string;
+  /** Registry jurisdiction code exactly as the registry reports it (e.g. 'gb'). */
   jurisdictionCode?: string;
   registrationNumber?: string;
+  companyStatus?: string;
+  incorporationDate?: string;
+  dissolutionDate?: string;
+  registeredAddress?: string;
   foundedYear?: number;
   officialWebsite?: string;
   logoUrl?: string;
@@ -76,22 +110,44 @@ export interface CompanySearchResult {
   name: string;
   businessType?: string;
   industry?: string;
+  /**
+   * A real country name ONLY when the source explicitly supplies one.
+   * Never a jurisdiction code.
+   */
   country?: string;
+  /** Registry jurisdiction code exactly as the registry reports it. */
   jurisdictionCode?: string;
   registrationNumber?: string;
   officialWebsite?: string;
   logoUrl?: string;
   profileStatus: 'claimed' | 'unclaimed';
+  /**
+   * Only populated for records that genuinely carry a reputation score.
+   * A registry identity record never has one, so it stays undefined.
+   */
+  reputationScore?: number | null;
+  reputationLevel?: string | null;
   source: CompanySourceInfo;
 }
 
 export interface Company {
   id: string;
   name: string;
-  registration_no: string;
-  industry: string;
-  founded_date: string;
+  // The fields below are optional because a real registry record does not
+  // supply every value. They must be left undefined when the source does not
+  // provide them. Never fabricate a value to fill a required slot.
+  registration_no?: string;
+  industry?: string;
+  founded_date?: string;
   country?: string;
+  /** Registry jurisdiction code exactly as the registry reports it. */
+  jurisdictionCode?: string;
+  companyStatus?: string;
+  incorporationDate?: string;
+  dissolutionDate?: string;
+  registeredAddress?: string;
+  /** Provider-native record id (e.g. OpenCorporates company id). */
+  openCorporatesId?: string;
   isClaimed?: boolean;
   logo?: string;
   officialWebsite?: string;
