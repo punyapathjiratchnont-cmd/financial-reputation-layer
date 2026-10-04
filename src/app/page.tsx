@@ -25,20 +25,20 @@ export default function Home() {
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30">
       {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/70 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 min-h-16 py-2 sm:h-16 sm:py-0 flex flex-wrap items-center justify-between gap-y-2">
           <Link href="/" className="flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-indigo-400" />
             <span className="font-semibold text-lg tracking-tight">FRL</span>
           </Link>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 sm:gap-x-6">
             <LanguageToggle />
             <Link href="/search" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
               {t('nav.findCompany', 'Search Companies')}
             </Link>
-            <Link href="/principles" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+            <Link href="/principles" className="hidden sm:inline text-sm font-medium text-slate-300 hover:text-white transition-colors">
               {t('nav.principles', 'Principles')}
             </Link>
-            <Link href="/company/c1" className="text-sm font-semibold px-4 py-2 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 transition-all">
+            <Link href="/company/c1" className="text-sm font-semibold px-3 sm:px-4 py-2 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 transition-all whitespace-nowrap">
               My Company Profile
             </Link>
           </div>
@@ -61,7 +61,7 @@ export default function Home() {
           </h1>
 
           <p className="text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Search for a company to inspect verified business reputation signals, payment track records, and financial stability.
+            Search for a company to inspect business reputation signals, payment track records, and financial stability.
           </p>
 
           {/* SECTION 2: HERO SEARCH BOX */}
@@ -132,9 +132,9 @@ export default function Home() {
               <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-4">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-slate-100 mb-2">3. Verified Evidence</h3>
+              <h3 className="text-base font-bold text-slate-100 mb-2">3. Available Evidence</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Inspect underlying verified records, data sources, current issues, and information gaps.
+                Inspect the records FRL holds, their data sources, current issues, and information gaps.
               </p>
             </div>
           </div>

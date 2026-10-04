@@ -69,11 +69,15 @@ export const MOCK_COMPANIES: Company[] = [
         isSufficient: true,
       },
       businessReliability: {
-        score: 810,
-        label: 'Strong',
-        explanation: 'Based on 2 verified active counterparty attestations and client contract fulfillments.',
-        source: 'Verified Counterparty Attestation',
-        isSufficient: true,
+        // Business Reliability is claim-based, never personal finance. This
+        // record holds no verified counterparty attestations or trade claims,
+        // so it reports Insufficient Data rather than a number. This matches
+        // what the Owner Workspace already shows for the same company.
+        score: null,
+        label: 'Insufficient Data',
+        explanation:
+          'No verified FRL counterparty attestations or trade claims have been submitted.',
+        isSufficient: false,
       },
       financialStability: {
         score: 790,
@@ -214,11 +218,12 @@ export const MOCK_COMPANIES: Company[] = [
         isSufficient: true,
       },
       businessReliability: {
-        score: 720,
-        label: 'Strong',
-        explanation: 'Based on verified public tenders & project completion attestations.',
-        source: 'Public Record & Counterparty Attestations',
-        isSufficient: true,
+        // Claim-based only: no verified attestations exist for this record.
+        score: null,
+        label: 'Insufficient Data',
+        explanation:
+          'No verified FRL counterparty attestations or trade claims have been submitted.',
+        isSufficient: false,
       },
       financialStability: {
         score: 640,
@@ -539,7 +544,7 @@ export const MOCK_COMPANIES: Company[] = [
     registeredAddress: 'One Apple Park Way, Cupertino, CA 95014, US',
     officialWebsite: 'https://www.apple.com',
     isClaimed: false,
-    logo: '',
+    logo: '🍎',
     sourceInfo: {
       provider: 'FRL Development Demo Directory',
       sourceType: 'internal_demo',
@@ -588,7 +593,7 @@ export const MOCK_COMPANIES: Company[] = [
     registeredAddress: 'One Microsoft Way, Redmond, WA 98052, US',
     officialWebsite: 'https://www.microsoft.com',
     isClaimed: false,
-    logo: '',
+    logo: '💻',
     sourceInfo: {
       provider: 'FRL Development Demo Directory',
       sourceType: 'internal_demo',
@@ -637,7 +642,7 @@ export const MOCK_COMPANIES: Company[] = [
     registeredAddress: '2788 San Tomas Expressway, Santa Clara, CA 95051, US',
     officialWebsite: 'https://www.nvidia.com',
     isClaimed: false,
-    logo: '',
+    logo: '🖥️',
     sourceInfo: {
       provider: 'FRL Development Demo Directory',
       sourceType: 'internal_demo',
@@ -686,7 +691,7 @@ export const MOCK_COMPANIES: Company[] = [
     registeredAddress: '410 Terry Avenue North, Seattle, WA 98109, US',
     officialWebsite: 'https://www.aboutamazon.com',
     isClaimed: false,
-    logo: '',
+    logo: '🛒',
     sourceInfo: {
       provider: 'FRL Development Demo Directory',
       sourceType: 'internal_demo',
@@ -735,7 +740,7 @@ export const MOCK_COMPANIES: Company[] = [
     registeredAddress: 'One Coca Cola Plaza, Atlanta, GA 30313, US',
     officialWebsite: 'https://www.coca-colacompany.com',
     isClaimed: false,
-    logo: '',
+    logo: '🥤',
     sourceInfo: {
       provider: 'FRL Development Demo Directory',
       sourceType: 'internal_demo',
@@ -785,7 +790,7 @@ export const MOCK_COMPANIES: Company[] = [
     jurisdictionCode: 'kr',
     officialWebsite: 'https://www.samsung.com',
     isClaimed: false,
-    logo: '',
+    logo: '📱',
     sourceInfo: {
       provider: 'FRL Development Demo Directory',
       sourceType: 'internal_demo',

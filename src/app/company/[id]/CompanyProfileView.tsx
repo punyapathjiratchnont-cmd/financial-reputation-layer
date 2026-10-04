@@ -49,14 +49,14 @@ export function CompanyProfileView({ company }: Props) {
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-24">
       {/* Top Sticky Navbar */}
       <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 min-h-16 py-2 sm:h-16 sm:py-0 flex flex-wrap items-center justify-between gap-y-2">
           <Link href="/" className="flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-indigo-400" />
             <span className="font-semibold text-lg tracking-tight">FRL</span>
-            <span className="text-xs text-slate-500 font-mono ml-2 border-l border-white/10 pl-2">Directory</span>
+            <span className="hidden sm:inline text-xs text-slate-500 font-mono ml-2 border-l border-white/10 pl-2">Directory</span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
             <Link
               href="/search"
               className="text-xs font-semibold text-slate-300 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
@@ -65,7 +65,7 @@ export function CompanyProfileView({ company }: Props) {
             </Link>
 
             {/* Mode Switcher Toggle */}
-            <div className="flex items-center p-1 rounded-xl bg-slate-900 border border-white/10">
+            <div className="flex items-center p-1 rounded-xl bg-slate-900 border border-white/10 shrink-0">
               <button
                 onClick={() => setViewMode('profile')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${

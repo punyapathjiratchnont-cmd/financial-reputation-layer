@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   TrendingUp,
   Activity,
@@ -179,9 +179,28 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
   const isDemo = dataMode === 'demo';
   const demoProfile = MOCK_FINANCIAL_PROFILES[selectedProfileKey] || MOCK_FINANCIAL_PROFILES.normal;
 
-  const activeOutcome: ReputationOutcome | null = isDemo
-    ? calculateReputation(demoProfile.data)
-    : realOutcome;
+  // Memoised on purpose.
+  //
+  // calculateReputation() returns a NEW object on every call, so computing
+  // this inline produced a new object identity on every render. That identity
+  // is a dependency of fetchAIAnalysis, which is a dependency of the effect
+  // below, so each render re-fired the effect and issued a fresh
+  // POST /api/reputation/analysis — a self-sustaining loop, because setting
+  // the analysis state caused the next render. One click on Demo Mode issued
+  // ~60 requests and exhausted the platform rate limit, leaving the AI panel
+  // permanently blank.
+  //
+  // Memoising on the real inputs makes the identity stable across re-renders,
+  // so the request fires once per genuine change of evidence (mode, selected
+  // demo profile, or newly loaded real data) and not on every render.
+  //
+  // The scoring logic itself is untouched: the same calculateReputation() call
+  // produces the same outcome, it is simply not recomputed when nothing that
+  // feeds it has changed.
+  const activeOutcome: ReputationOutcome | null = useMemo(
+    () => (isDemo ? calculateReputation(demoProfile.data) : realOutcome),
+    [isDemo, demoProfile, realOutcome]
+  );
 
   // A score exists ONLY when the engine produced one. `null` is never rendered
   // as a number and never as a level.
@@ -215,6 +234,16 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
           history: activeHistory,
         }),
       });
+
+      if (res.status === 429) {
+        // Rate limited. There is deliberately NO automatic retry here: a retry
+        // loop is what exhausted the limit in the first place. Any previous
+        // result is cleared so nothing stale is presented as fresh, and the
+        // user decides when to try again via the explicit button below.
+        setAnalysis(null);
+        setAiError('AI analysis is temporarily unavailable. Please try again shortly.');
+        return;
+      }
 
       if (res.ok) {
         const data = await res.json();
@@ -491,7 +520,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
     <div className="mt-8 space-y-8">
       {/* SECTION 3: NEW MAIN NAVIGATION BAR */}
       <div className="p-2 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-xl shadow-xl flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           <button
             onClick={() => setActiveTab('dashboard')}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
@@ -554,7 +583,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
         </div>
 
         {/* Mode Selector & Status Badge */}
-        <div className="flex items-center gap-2 px-2">
+        <div className="flex flex-wrap items-center gap-2 px-2 min-w-0">
           <div className="inline-flex items-center rounded-xl bg-black/40 border border-white/10 p-1 text-[11px]">
             <button
               onClick={() => setDataMode('real')}
@@ -580,7 +609,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
             <select
               value={selectedProfileKey}
               onChange={(e) => setSelectedProfileKey(e.target.value)}
-              className="px-2.5 py-1 rounded-xl bg-black/40 border border-white/15 text-slate-200 text-[11px] focus:outline-none"
+              className="px-2.5 py-1 rounded-xl bg-black/40 border border-white/15 text-slate-200 text-[11px] focus:outline-none w-full sm:w-auto max-w-full min-w-0"
             >
               {Object.entries(MOCK_FINANCIAL_PROFILES).map(([key, item]) => (
                 <option key={key} value={key} className="bg-slate-900 text-slate-200">
@@ -695,14 +724,18 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
             <div className="grid md:grid-cols-3 gap-8 items-center">
               {/* Central Score Display */}
               <div className="text-center md:text-left space-y-2 p-6 rounded-2xl bg-black/30 border border-white/5">
-                <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block">Official FRL Score</span>
+                <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block">
+                  {isDemo ? 'Demo Reputation Score (not real)' : 'Official FRL Score'}
+                </span>
                 <div className="flex items-baseline justify-center md:justify-start gap-3">
                   <span className="text-6xl font-black tracking-tight text-white">{scored.score}</span>
                   <span className="text-sm text-slate-400 font-medium">/ 850</span>
                 </div>
                 <div className="pt-1">{getLevelBadge(scored.level)}</div>
                 <p className="text-[11px] text-slate-400 pt-2 border-t border-white/5">
-                  Calculated engine-side from verified financial behavior.
+                  {isDemo
+                    ? 'Sample data from a demo profile. This is not a real FRL reputation.'
+                    : 'Calculated engine-side from verified financial behavior.'}
                 </p>
               </div>
 
@@ -933,6 +966,29 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
                 <div className="p-8 text-center text-xs text-slate-400 space-y-2">
                   <RefreshCw className="w-5 h-5 text-indigo-400 animate-spin mx-auto" />
                   <p>Analyzing reputation factors...</p>
+                </div>
+              )}
+
+              {/* Errors are surfaced, never silently swallowed. No result is
+                  shown and no request is retried automatically: the retry is a
+                  deliberate user action. */}
+              {aiError && !aiLoading && (
+                <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <strong className="block uppercase tracking-wider">
+                        Analysis unavailable
+                      </strong>
+                      <span className="text-amber-300/90">{aiError}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => fetchAIAnalysis()}
+                    className="shrink-0 self-start sm:self-auto px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 hover:bg-amber-500/25 text-xs font-semibold transition-colors"
+                  >
+                    Try again
+                  </button>
                 </div>
               )}
 
