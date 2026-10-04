@@ -36,10 +36,24 @@ import {
   Eye,
   SlidersHorizontal
 } from 'lucide-react';
-import { calculateReputation, ReputationResult, ReputationLevel, UserFinancialData } from '@/lib/reputationEngine';
+import {
+  calculateReputation,
+  calculateBusinessReliability,
+  ReputationFactors,
+  ReputationOutcome,
+  ReputationResult,
+  ReputationLevel,
+  UserFinancialData,
+} from '@/lib/reputationEngine';
 import { MOCK_FINANCIAL_PROFILES } from '@/lib/mockFinancialData';
 import { AIAnalysisResult } from '@/lib/aiAnalysisService';
-import { ScoreHistoryItem, ReputationProof, ReputationShare, DisclosureLevel } from '@/lib/types';
+import {
+  Claim,
+  ScoreHistoryItem,
+  ReputationProof,
+  ReputationShare,
+  DisclosureLevel,
+} from '@/lib/types';
 import { ScoreHistoryChart } from './ScoreHistoryChart';
 import { FinancialInputModal } from './FinancialInputModal';
 import { useLanguage } from '@/lib/i18n';
@@ -61,9 +75,9 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
   const [selectedProfileKey, setSelectedProfileKey] = useState<string>('normal');
 
   // Real user state
-  const [realHasData, setRealHasData] = useState<boolean>(true);
+  const [realHasData, setRealHasData] = useState<boolean>(false);
   const [realFinancialData, setRealFinancialData] = useState<UserFinancialData | null>(null);
-  const [realReputation, setRealReputation] = useState<ReputationResult | null>(null);
+  const [realOutcome, setRealOutcome] = useState<ReputationOutcome | null>(null);
   const [realHistory, setRealHistory] = useState<ScoreHistoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -140,11 +154,11 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
         const data = await res.json();
         setRealHasData(data.hasData);
         if (data.hasData) {
-          setRealReputation(data.reputation);
+          setRealOutcome(data.outcome ?? null);
           setRealHistory(data.history || []);
           setRealFinancialData(data.financialData);
         } else {
-          setRealReputation(null);
+          setRealOutcome(null);
           setRealFinancialData(null);
         }
       }
@@ -165,9 +179,14 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
   const isDemo = dataMode === 'demo';
   const demoProfile = MOCK_FINANCIAL_PROFILES[selectedProfileKey] || MOCK_FINANCIAL_PROFILES.normal;
 
-  const activeReputation: ReputationResult | null = isDemo
+  const activeOutcome: ReputationOutcome | null = isDemo
     ? calculateReputation(demoProfile.data)
-    : realReputation;
+    : realOutcome;
+
+  // A score exists ONLY when the engine produced one. `null` is never rendered
+  // as a number and never as a level.
+  const scored: ReputationResult | null =
+    activeOutcome && activeOutcome.status === 'scored' ? activeOutcome.result : null;
 
   const activeFinancialData: UserFinancialData | null = isDemo
     ? demoProfile.data
@@ -177,7 +196,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
 
   // Fetch AI Analysis
   const fetchAIAnalysis = useCallback(async () => {
-    if (!activeReputation) {
+    if (!activeOutcome) {
       setAnalysis(null);
       setAiLoading(false);
       return;
@@ -208,7 +227,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
     } finally {
       setAiLoading(false);
     }
-  }, [activeReputation, activeFinancialData, activeHistory, isDemo, selectedProfileKey, userId]);
+  }, [activeOutcome, activeFinancialData, activeHistory, isDemo, selectedProfileKey, userId]);
 
   useEffect(() => {
     fetchAIAnalysis();
@@ -372,33 +391,75 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
     }
   };
 
-  // Section 10 & 21: B2B Dimensions Mapping Layer
-  const getB2BDimensions = (factors?: ReputationResult['factors']) => {
-    if (!factors) {
+  // Business Reliability comes ONLY from verified business claims (counterparty
+  // attestations and official claims). It must never be derived from personal
+  // financial behaviour such as transaction history or payment reliability.
+  //
+  // This view has no verified-claim source wired to it yet, so the honest result
+  // of calculateBusinessReliability with no claims is Insufficient Data.
+  // Wiring real claims is separate work.
+  const VERIFIED_BUSINESS_CLAIMS: Claim[] = [];
+
+  const INSUFFICIENT_LABEL = 'Insufficient Data';
+
+  const labelFor = (
+    score: number | null,
+    high: string,
+    midHigh: string,
+    mid: string,
+    low: string
+  ): string => {
+    if (score === null || typeof score !== 'number') return INSUFFICIENT_LABEL;
+    if (score >= 750) return high;
+    if (score >= 650) return midHigh;
+    if (score >= 500) return mid;
+    return low;
+  };
+
+  const getB2BDimensions = (outcome: ReputationOutcome | null) => {
+    if (!outcome) {
       return {
-        paymentReliability: 'Moderate',
-        businessReliability: 'Moderate',
-        financialStability: 'Moderate',
-        transactionHistory: 'Moderate',
+        paymentReliability: INSUFFICIENT_LABEL,
+        businessReliability: INSUFFICIENT_LABEL,
+        financialStability: INSUFFICIENT_LABEL,
+        transactionHistory: INSUFFICIENT_LABEL,
       };
     }
 
-    const payScore = factors.paymentReliability.score;
-    const trxScore = factors.transactionHistory.score;
-    const incScore = factors.incomeConsistency.score;
-    const expScore = factors.spendingStability.score;
+    const factors: ReputationFactors = outcome.factors;
+    const business = calculateBusinessReliability(VERIFIED_BUSINESS_CLAIMS);
+
+    const incomeScore = factors.incomeConsistency.score;
+    const spendingScore = factors.spendingStability.score;
+
+    let financialStability = INSUFFICIENT_LABEL;
+    if (incomeScore !== null && spendingScore !== null) {
+      financialStability = incomeScore >= 650 && spendingScore >= 600 ? 'Stable' : 'Moderate';
+    }
 
     return {
-      paymentReliability: payScore >= 750 ? 'Strong' : payScore >= 650 ? 'Good' : payScore >= 500 ? 'Moderate' : 'Needs Improvement',
-      businessReliability: trxScore >= 700 && payScore >= 650 ? 'Strong' : trxScore >= 550 ? 'Good' : 'Moderate',
-      financialStability: incScore >= 650 && expScore >= 600 ? 'Stable' : 'Moderate',
-      transactionHistory: trxScore >= 750 ? 'Strong' : trxScore >= 650 ? 'Good' : trxScore >= 500 ? 'Moderate' : 'Limited',
+      paymentReliability: labelFor(
+        factors.paymentReliability.score,
+        'Strong',
+        'Good',
+        'Moderate',
+        'Needs Improvement'
+      ),
+      businessReliability: business.isSufficient ? business.label : INSUFFICIENT_LABEL,
+      financialStability,
+      transactionHistory: labelFor(
+        factors.transactionHistory.score,
+        'Strong',
+        'Good',
+        'Moderate',
+        'Limited'
+      ),
     };
   };
 
-  const b2bDimensions = getB2BDimensions(activeReputation?.factors);
+  const b2bDimensions = getB2BDimensions(activeOutcome);
 
-  const getLevelBadge = (level: ReputationLevel | string) => {
+  const getLevelBadge = (level: ReputationLevel | string | null) => {
     switch (level) {
       case 'Excellent':
         return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">EXCELLENT</span>;
@@ -406,8 +467,11 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
         return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">GOOD</span>;
       case 'Fair':
         return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30">FAIR</span>;
-      default:
+      case 'Low':
         return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/30">LOW</span>;
+      default:
+        // No level was produced, so none is shown. Absence is never 'Low'.
+        return <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-500/20 text-slate-300 border border-slate-500/30">INSUFFICIENT DATA</span>;
     }
   };
 
@@ -546,6 +610,20 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
         </div>
       )}
 
+      {/* EVIDENCE POLICY: missing or partial evidence never renders a score. */}
+      {!loading && activeOutcome && activeOutcome.status === 'insufficient' && (
+        <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex items-start gap-3">
+          <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <strong className="block uppercase tracking-wider">Insufficient Data</strong>
+            <span className="text-amber-300/90">{activeOutcome.reason}</span>
+            <span className="block text-amber-300/70">
+              FRL will not publish a reputation score until every required factor has verified evidence.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* SECTION 16: EMPTY STATE HANDLING */}
       {!isDemo && !loading && !realHasData && (
         <div className="p-12 rounded-3xl border border-dashed border-slate-800 bg-slate-900/40 backdrop-blur-md text-center space-y-4">
@@ -571,7 +649,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
       {/* ========================================================================= */}
       {/* TAB 1: DASHBOARD (Sections 4, 5, 6)                                       */}
       {/* ========================================================================= */}
-      {activeTab === 'dashboard' && (isDemo || realHasData) && activeReputation && (
+      {activeTab === 'dashboard' && (isDemo || realHasData) && scored && (
         <div className="space-y-8">
           {/* SECTION 4: MY BUSINESS REPUTATION HERO CARD */}
           <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
@@ -619,10 +697,10 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
               <div className="text-center md:text-left space-y-2 p-6 rounded-2xl bg-black/30 border border-white/5">
                 <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block">Official FRL Score</span>
                 <div className="flex items-baseline justify-center md:justify-start gap-3">
-                  <span className="text-6xl font-black tracking-tight text-white">{activeReputation.score}</span>
+                  <span className="text-6xl font-black tracking-tight text-white">{scored.score}</span>
                   <span className="text-sm text-slate-400 font-medium">/ 850</span>
                 </div>
-                <div className="pt-1">{getLevelBadge(activeReputation.level)}</div>
+                <div className="pt-1">{getLevelBadge(scored.level)}</div>
                 <p className="text-[11px] text-slate-400 pt-2 border-t border-white/5">
                   Calculated engine-side from verified financial behavior.
                 </p>
@@ -718,7 +796,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
             )}
 
             {/* Inline Result Render if Quick Lookup Triggered */}
-            {verificationResult && (
+            {verificationResult && verificationResult.valid === true && (
               <div className="p-6 rounded-2xl bg-black/40 border border-white/10 space-y-4 text-left">
                 <div className="flex items-center justify-between border-b border-white/10 pb-3">
                   <span className="text-xs font-mono text-indigo-400 font-bold uppercase">Verification Lookup Result</span>
@@ -756,7 +834,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
       {/* ========================================================================= */}
       {/* TAB 2: MY REPUTATION (Sections 8, 10, 13)                                 */}
       {/* ========================================================================= */}
-      {activeTab === 'my_reputation' && (isDemo || realHasData) && activeReputation && (
+      {activeTab === 'my_reputation' && (isDemo || realHasData) && scored && (
         <div className="space-y-8">
           <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
             <div className="border-b border-white/10 pb-4">
@@ -771,10 +849,10 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
               <div className="text-center md:text-left space-y-1">
                 <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Engine Computed Score</span>
                 <div className="flex items-baseline justify-center md:justify-start gap-3">
-                  <span className="text-5xl font-extrabold tracking-tight text-white">{activeReputation.score}</span>
+                  <span className="text-5xl font-extrabold tracking-tight text-white">{scored.score}</span>
                   <span className="text-sm font-medium text-slate-400">/ 850</span>
                 </div>
-                <div className="pt-1">{getLevelBadge(activeReputation.level)}</div>
+                <div className="pt-1">{getLevelBadge(scored.level)}</div>
               </div>
 
               <div className="md:col-span-2 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6">
@@ -980,8 +1058,21 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
               </div>
             )}
 
+            {verificationResult && verificationResult.valid !== true && (
+              <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex items-start gap-3">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <strong className="block uppercase tracking-wider">This record is not valid</strong>
+                  <span className="text-amber-300/90">
+                    Status: {String(verificationResult.status || 'unknown')}. FRL shows no score
+                    for this record because it is no longer a valid verification.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* SECTION 7: COMPANY VERIFICATION RESULT PAGE */}
-            {verificationResult && (
+            {verificationResult && verificationResult.valid === true && (
               <div className="p-8 rounded-3xl bg-black/40 border border-white/15 space-y-6 text-center shadow-2xl">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-extrabold uppercase tracking-widest">
                   <CheckCircle2 className="w-4 h-4" />
@@ -1020,7 +1111,7 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
                     <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
                       <span className="text-slate-400 font-medium">Business Reliability</span>
                       <strong className="text-slate-100 font-bold text-sm mt-1">
-                        {verificationResult.reputation?.factors?.transactionHistory || b2bDimensions.businessReliability}
+                        {b2bDimensions.businessReliability}
                       </strong>
                     </div>
 

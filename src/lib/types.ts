@@ -289,6 +289,12 @@ export interface ReputationProof {
   expiresAt: string;
   status: 'active' | 'revoked' | 'expired';
   createdAt: string;
+  /**
+   * Which reputation evidence policy produced this proof.
+   * Proofs without one were minted before the strict six-factor evidence
+   * policy existed and must never be presented as valid.
+   */
+  policyVersion?: string;
 }
 
 export type DisclosureLevel = 'score_only' | 'score_and_level' | 'score_and_factors';

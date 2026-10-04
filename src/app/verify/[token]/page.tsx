@@ -138,8 +138,14 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
             {/* Verification Metadata & Privacy Footer */}
             <div className="pt-6 border-t border-white/10 space-y-4 text-xs text-slate-400">
               <div className="flex items-center justify-center gap-2 text-emerald-400 font-medium">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>✓ Verified Selective Disclosure</span>
+                {isActive && <CheckCircle2 className="w-4 h-4" />}
+                {isActive ? (
+                  <span>✓ Verified Selective Disclosure</span>
+                ) : (
+                  <span className="text-slate-500">
+                    This disclosure is not valid. FRL shows no reputation data for it.
+                  </span>
+                )}
               </div>
 
               {proof && (
@@ -174,6 +180,46 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
     const isExpiredByTime = new Date(proof.expiresAt) < new Date();
     const effectiveStatus = isExpiredByTime ? 'expired' : proof.status;
 
+    // A proof that is not active is never rendered with a score, a level, a
+    // factor breakdown, a QR code or a "Verified by FRL" claim.
+    // Legacy proofs were minted before the strict evidence policy existed and
+    // may carry a score produced from fabricated data.
+    if (effectiveStatus !== 'active') {
+      const revoked = effectiveStatus === 'revoked';
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-50 font-sans flex items-center justify-center px-6">
+          <div className="max-w-xl w-full p-8 rounded-3xl bg-white/[0.03] border border-white/10 text-center space-y-4">
+            <div className="flex items-center justify-center gap-2 text-indigo-400 text-xs font-semibold tracking-wider uppercase">
+              <ShieldCheck className="w-4 h-4" />
+              FRL Verification Portal
+            </div>
+
+            <h1 className="text-2xl font-extrabold text-slate-100">
+              {revoked ? 'Revoked proof' : 'Expired proof'}
+            </h1>
+
+            <p className="text-sm text-slate-400">
+              {revoked
+                ? 'This reputation proof has been revoked, so it is no longer a valid verification.'
+                : 'This reputation proof has expired, so it is no longer a valid verification.'}
+            </p>
+
+            <p className="text-xs text-slate-500 leading-relaxed">
+              FRL only displays a score, a level and factor results for a proof that is active and
+              was produced under the current reputation evidence policy.
+            </p>
+
+            <Link
+              href="/search"
+              className="inline-block px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold"
+            >
+              Back to company search
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-20">
         <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/50 backdrop-blur-md">
@@ -200,27 +246,8 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
               Financial Reputation Verification
             </h1>
 
-            {/* Status Alert Banners */}
-            {effectiveStatus === 'revoked' && (
-              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm space-y-1">
-                <div className="font-bold flex items-center justify-center gap-2">
-                  <XCircle className="w-5 h-5 text-rose-400" />
-                  REVOKED PROOF
-                </div>
-                <p>This reputation proof has been revoked by its owner.</p>
-              </div>
-            )}
-
-            {effectiveStatus === 'expired' && (
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm space-y-1">
-                <div className="font-bold flex items-center justify-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-400" />
-                  EXPIRED PROOF
-                </div>
-                <p>This reputation proof has expired.</p>
-              </div>
-            )}
-
+            {/* Only an active proof reaches this point: the revoked and expired
+                states are handled by the early return above. */}
             {effectiveStatus === 'active' && (
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold tracking-widest uppercase">
                 <CheckCircle2 className="w-4 h-4" />

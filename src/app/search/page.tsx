@@ -133,7 +133,12 @@ function SearchContent() {
                 <h3 className="text-lg font-bold text-slate-100 group-hover:text-indigo-300 transition-colors">
                   {item.name}
                 </h3>
-                {isClaimed ? (
+                {isDemo ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-400/40">
+                    <AlertCircle className="w-3 h-3 text-amber-400" />
+                    Demo Record
+                  </span>
+                ) : isClaimed ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                     <CheckCircle2 className="w-3 h-3 text-indigo-400" />
                     Claimed Profile
@@ -169,8 +174,13 @@ function SearchContent() {
               <span className="text-[11px] text-slate-400 block font-semibold">
                 Business Reputation
               </span>
-              {/* STRICT PRODUCT RULE: a registry identity record never carries a score. */}
-              {hasScore ? (
+              {/* STRICT PRODUCT RULE: a registry identity record never carries a score,
+                  and demo records never show a number that could read as a real one. */}
+              {isDemo ? (
+                <span className="text-xs font-bold text-amber-400/90 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20 inline-block mt-0.5">
+                  Demo data — not a real score
+                </span>
+              ) : hasScore ? (
                 <div className="flex items-center gap-1.5">
                   <span className="text-2xl font-extrabold text-amber-400">
                     {item.reputationScore}

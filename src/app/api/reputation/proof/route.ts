@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { calculateReputation, generateFactorSummary } from '@/lib/reputationEngine';
+import { calculateReputation, evaluateProofEligibility } from '@/lib/reputationEngine';
 import { getUserFinancialData, createReputationProof, getUserReputationProofs } from '@/lib/db';
 import { getAuthenticatedUser, verifyOwnership } from '@/lib/authGuard';
 import { ReputationProof } from '@/lib/types';
@@ -32,13 +32,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized to create proof for another user.' }, { status: 403 });
     }
 
-    // Load user financial data
+    // Load user financial data. A missing record is passed through as-is: it is
+    // never substituted with a default profile.
     const financialData = getUserFinancialData(ownerUserId);
 
-    // SECURITY: Engine recalculates score & level strictly server-side
+    // SECURITY: Engine recalculates score & level strictly server-side.
     // Client score / level parameter is completely ignored!
-    const reputationResult = calculateReputation(financialData || undefined);
-    const factorSummary = generateFactorSummary(reputationResult.factors);
+    //
+    // EVIDENCE POLICY: a proof may only be minted from a scored outcome. When
+    // evidence is missing or partial the route returns 409 and persists nothing.
+    const outcome = calculateReputation(financialData);
+    const eligibility = evaluateProofEligibility(outcome);
+
+    if (!eligibility.eligible) {
+      return NextResponse.json(
+        { error: eligibility.code, message: eligibility.message },
+        { status: 409 }
+      );
+    }
+
+    const { score, level, factorSummary } = eligibility.payload;
 
     // Cryptographically secure verification ID
     const randomHex = crypto.randomBytes(16).toString('hex');
@@ -52,13 +65,16 @@ export async function POST(request: Request) {
     const proof: ReputationProof = {
       id: verificationId,
       ownerUserId,
-      score: reputationResult.score,
-      level: reputationResult.level,
+      score,
+      level,
       factorSummary,
       verifiedAt,
       expiresAt,
       status: 'active',
       createdAt: verifiedAt,
+      // Marks which evidence policy produced this proof. A proof without this
+      // field predates the strict evidence policy and is not valid.
+      policyVersion: 'frl-evidence-v1',
     };
 
     createReputationProof(proof);

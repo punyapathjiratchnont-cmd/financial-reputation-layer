@@ -34,27 +34,36 @@ const initialReviews: PublicReview[] = [
   }
 ];
 
-const initialFinancialData: Record<string, UserFinancialRecord> = {
-  c1: {
-    userId: 'c1',
-    income: { monthly: 75000, stabilityMonths: 36, sourcesCount: 2 },
-    expenses: { monthlyAvg: 42000, discretionaryRatio: 0.2 },
-    payments: { totalDue: 24, onTimeCount: 24, lateCount: 0, missedCount: 0 },
-    savings: { currentBalance: 350000, monthlyContribution: 15000, emergencyFundMonths: 8 },
-    debts: { totalDebt: 120000, creditLimit: 500000, utilizationRatio: 0.24, monthlyDebtService: 12000 },
-    transactions: { count6Months: 240, bouncedCount: 0, oldestAccountYears: 6 },
-    updatedAt: '2024-10-01T00:00:00.000Z',
-  }
-};
+/**
+ * Seeded financial evidence is intentionally empty.
+ *
+ * A complete, realistic-looking financial profile used to be seeded here for
+ * c1. The reputation engine cannot tell seeded demo data from submitted data,
+ * so that seed let a demo company pass the six-factor evidence gate and mint a
+ * real-looking reputation score and a real proof without anyone providing any
+ * evidence. Real mode now starts with nothing.
+ *
+ * Real evidence only ever arrives through saveUserFinancialData(), i.e. an
+ * explicit user submission.
+ *
+ * Demo financial profiles for demo mode are untouched: they live in
+ * mockFinancialData.ts and are only ever read behind an explicit demo mode.
+ */
+const initialFinancialData: Record<string, UserFinancialRecord> = {};
 
-const initialScoreHistory: Record<string, ScoreHistoryItem[]> = {
-  c1: [
-    { id: 'hist_1', userId: 'c1', score: 720, previousScore: null, change: 0, level: 'Good', calculatedAt: '2024-01-01T00:00:00.000Z', reason: 'Initial baseline' },
-    { id: 'hist_2', userId: 'c1', score: 728, previousScore: 720, change: 8, level: 'Good', calculatedAt: '2024-04-01T00:00:00.000Z', reason: 'Quarterly update' },
-    { id: 'hist_3', userId: 'c1', score: 735, previousScore: 728, change: 7, level: 'Good', calculatedAt: '2024-07-01T00:00:00.000Z', reason: 'Quarterly update' },
-    { id: 'hist_4', userId: 'c1', score: 762, previousScore: 735, change: 27, level: 'Excellent', calculatedAt: '2024-10-01T00:00:00.000Z', reason: 'Savings milestone reached' },
-  ]
-};
+/**
+ * Seeded score history is intentionally empty.
+ *
+ * Four fabricated baseline points (720 -> 762) used to be seeded here for c1.
+ * They were served through the real /api/reputation response and plotted as a
+ * real reputation trend, which is demo data leaking into real mode. Real
+ * history is now only ever written by recordScoreHistory() from a score the
+ * engine actually produced.
+ *
+ * Demo score history for demo mode lives in mockFinancialData.ts and is only
+ * shown behind an explicit demo mode.
+ */
+const initialScoreHistory: Record<string, ScoreHistoryItem[]> = {};
 
 const initialLinks: VerificationLink[] = [];
 const initialAuditLogs: any[] = [];

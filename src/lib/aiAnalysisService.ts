@@ -1,4 +1,8 @@
-import { ReputationResult, ScoreHistoryPoint, UserFinancialData } from './reputationEngine';
+import {
+  ReputationOutcome,
+  ScoreHistoryPoint,
+  UserFinancialData,
+} from './reputationEngine';
 
 export interface AIAnalysisResult {
   summary: string;
@@ -14,9 +18,35 @@ export interface AIAnalysisResult {
 
 export interface AIAnalysisInput {
   userId?: string;
-  reputation: ReputationResult;
+  reputation: ReputationOutcome;
   history?: ScoreHistoryPoint[];
   financialData?: Partial<UserFinancialData>;
+}
+
+/**
+ * The only analysis FRL may produce when there is not enough evidence.
+ *
+ * It states the insufficiency and stops. There are no strengths, no concerns,
+ * no trends and no recommendations, because each of those would be a factual
+ * conclusion drawn from data FRL does not have.
+ */
+function insufficientEvidenceResult(
+  provider: AIAnalysisResult['provider'],
+  model: string
+): AIAnalysisResult {
+  return {
+    summary:
+      'Insufficient evidence. FRL has not received enough verified financial data to evaluate this ' +
+      'reputation, so no score and no conclusions have been produced.',
+    strengths: [],
+    concerns: [],
+    trends: [],
+    recommendations: [],
+    analyzedAt: new Date().toISOString(),
+    provider,
+    model,
+    inputVersion: 'insufficient_v1',
+  };
 }
 
 export interface AIAnalysisProvider {
@@ -29,7 +59,7 @@ const AI_CACHE: Map<string, { result: AIAnalysisResult; createdAt: number }> = n
 
 function generateCacheKey(input: AIAnalysisInput): string {
   const userId = input.userId || 'default';
-  const score = input.reputation.score;
+  const score = input.reputation.status === 'scored' ? input.reputation.result.score : 'none';
   const updatedAt = input.financialData?.income?.monthly || 0;
   return `${userId}_${score}_${updatedAt}`;
 }
@@ -42,26 +72,15 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
 
   async analyze(input: AIAnalysisInput): Promise<AIAnalysisResult> {
     const { reputation, history = [] } = input;
-    const { score, level, factors } = reputation;
 
-    const factorList = Object.values(factors);
-    const hasData = factorList.some((f) => f.score > 300);
-
-    if (!hasData || score <= 300) {
-      return {
-        summary: 'Information is currently insufficient for a comprehensive AI financial analysis.',
-        strengths: [],
-        concerns: ['Limited transaction and payment history available on record.'],
-        trends: ['Insufficient historical data points to determine score trend.'],
-        recommendations: [
-          'Consider establishing verified payment records and counterparty attestations to build financial history.',
-        ],
-        analyzedAt: new Date().toISOString(),
-        provider: 'rule-engine',
-        model: 'rule-engine-v1',
-        inputVersion: `${score}_v3`,
-      };
+    // EVIDENCE POLICY: gate on the engine's explicit outcome, never on a
+    // numeric threshold such as "score > 300".
+    if (reputation.status !== 'scored') {
+      return insufficientEvidenceResult('rule-engine', 'rule-engine-v1');
     }
+
+    const { score, level, factors } = reputation.result;
+    const factorList = Object.values(factors);
 
     const sortedFactors = [...factorList].sort((a, b) => b.score - a.score);
     const topFactors = sortedFactors.slice(0, 2);
@@ -93,9 +112,8 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
     if (factors.transactionHistory.score >= 700) {
       strengths.push('Active transaction history with zero bounced transactions on record.');
     }
-    if (strengths.length === 0) {
-      strengths.push(`Baseline performance maintained across ${topFactors[0]?.name || 'key metrics'}.`);
-    }
+    // No fallback strength is invented when no factor clears the bar.
+    // An empty list is the honest result.
 
     const concerns: string[] = [];
     if (factors.spendingStability.score < 680 || factors.spendingStability.impact < 0) {
@@ -110,9 +128,8 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
     if (factors.savingBehavior.score < 680 || factors.savingBehavior.impact < 0) {
       concerns.push('Emergency liquidity reserve is below recommended multi-month coverage.');
     }
-    if (concerns.length === 0) {
-      concerns.push('No critical financial risk flags detected based on current data points.');
-    }
+    // No fallback concern is invented either. "No risk flags detected" would be
+    // a positive factual conclusion drawn from the absence of evidence.
 
     const trends: string[] = [];
     if (history.length >= 2) {
@@ -128,7 +145,7 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
         trends.push(`Reputation score has remained stable around ${last} over recent historical evaluation periods.`);
       }
     } else {
-      trends.push('Initial baseline evaluation established; ongoing quarterly data will form historical trend lines.');
+      trends.push('Not enough historical data points to determine a score trend.');
     }
 
     const recommendations: string[] = [];
@@ -144,9 +161,8 @@ export class RuleBasedAIProvider implements AIAnalysisProvider {
     if (factors.debtBehavior.score < 700) {
       recommendations.push('Aim to maintain credit utilization below 30% of total available limits where possible.');
     }
-    if (recommendations.length === 0) {
-      recommendations.push('Continue existing financial management practices to preserve high reputation stability.');
-    }
+    // No default recommendation: any recommendation here would imply proven
+    // financial behaviour.
 
     return {
       summary,
@@ -170,6 +186,13 @@ export class RealGeminiLLMProvider implements AIAnalysisProvider {
   name = 'gemini-api';
 
   async analyze(input: AIAnalysisInput): Promise<AIAnalysisResult> {
+    // Insufficient evidence is enforced BEFORE the model is consulted, so no
+    // model-generated conclusion can ever be accepted for a profile that has
+    // no evidence behind it.
+    if (input.reputation.status !== 'scored') {
+      return insufficientEvidenceResult('gemini-api', 'gemini-1.5-flash');
+    }
+
     const apiKey = process.env.GEMINI_API_KEY || process.env.LLM_API_KEY;
 
     if (!apiKey) {
@@ -194,9 +217,9 @@ CRITICAL ARCHITECTURE RULES:
 }`;
 
     const userPayload = {
-      score: input.reputation.score,
-      level: input.reputation.level,
-      factors: input.reputation.factors,
+      score: input.reputation.result.score,
+      level: input.reputation.result.level,
+      factors: input.reputation.result.factors,
       history: input.history || [],
       financialOverview: input.financialData ? {
         monthlyIncome: input.financialData.income?.monthly,
@@ -248,7 +271,7 @@ CRITICAL ARCHITECTURE RULES:
     }
 
     // Validate that score referenced matches input exactly
-    if (parsed.summary.includes('score') && !parsed.summary.includes(String(input.reputation.score))) {
+    if (parsed.summary.includes('score') && !parsed.summary.includes(String(input.reputation.result.score))) {
       // If hallucinated score detected, throw to fallback
       throw new Error('Hallucinated score detected in LLM output.');
     }
@@ -262,7 +285,7 @@ CRITICAL ARCHITECTURE RULES:
       analyzedAt: new Date().toISOString(),
       provider: 'gemini-api',
       model: 'gemini-1.5-flash',
-      inputVersion: `${input.reputation.score}_v4`,
+      inputVersion: `${input.reputation.result.score}_v4`,
     };
   }
 }

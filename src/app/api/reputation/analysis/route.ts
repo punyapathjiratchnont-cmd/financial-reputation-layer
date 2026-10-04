@@ -38,27 +38,40 @@ export async function POST(request: Request) {
     const authUser = await getAuthenticatedUser(request);
     const body = await request.json();
 
-    const profileKey = body.profileKey || 'normal';
-    const profileMock = MOCK_FINANCIAL_PROFILES[profileKey];
+    // Demo financial data is used ONLY when the caller explicitly asks for a
+    // demo profile. It must never become the default evidence for a real
+    // request, because that would silently turn demo data into a real score.
+    const requestedProfileKey =
+      typeof body.profileKey === 'string' ? body.profileKey : undefined;
+    const profileMock = requestedProfileKey
+      ? MOCK_FINANCIAL_PROFILES[requestedProfileKey]
+      : undefined;
 
-    const inputData = body.financialData || (profileMock ? profileMock.data : undefined);
+    const isDemoProfile = Boolean(profileMock) && body.financialData === undefined;
+    const inputData = body.financialData ?? (profileMock ? profileMock.data : undefined);
     const history = profileMock ? profileMock.history : body.history || [];
 
-    // Engine recalculates / verifies reputation result server-side
-    const reputationResult = calculateReputation(inputData);
+    // Engine recalculates / verifies reputation result server-side.
+    // The outcome carries its own sufficiency, so the AI layer can never be
+    // handed a score that was produced from missing evidence.
+    const outcome = calculateReputation(inputData);
 
     const userId = authUser?.id || body.userId || 'c1';
 
     // AI Analysis Layer processes verified engine output
     const analysis = await analyzeFinancialReputation({
       userId,
-      reputation: reputationResult,
+      reputation: outcome,
       history,
       financialData: inputData,
     });
 
     return NextResponse.json({
-      reputation: reputationResult,
+      mode: isDemoProfile ? 'demo' : 'real',
+      profileKey: isDemoProfile ? requestedProfileKey : null,
+      status: outcome.status,
+      reputation: outcome.status === 'scored' ? outcome.result : null,
+      reason: outcome.status === 'insufficient' ? outcome.reason : undefined,
       analysis,
     });
   } catch (error) {

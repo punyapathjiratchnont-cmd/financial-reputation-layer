@@ -28,9 +28,25 @@ export async function GET(
   const effectiveStatus = isExpiredByTime ? 'expired' : proof.status;
   const isValid = effectiveStatus === 'active';
 
+  // An invalid proof carries no reputation payload at all. A revoked, expired
+  // or legacy proof must not have its score served to anyone, because that
+  // score may have been produced from fabricated evidence before the strict
+  // evidence policy existed.
+  if (!isValid) {
+    return NextResponse.json({
+      valid: false,
+      status: effectiveStatus,
+      policyVersion: proof.policyVersion ?? null,
+      verifiedAt: proof.verifiedAt,
+      expiresAt: proof.expiresAt,
+    });
+  }
+
   // Return strictly sanitized object (NO raw financial figures exposed!)
   return NextResponse.json({
-    valid: isValid,
+    valid: true,
+    status: effectiveStatus,
+    policyVersion: proof.policyVersion ?? null,
     reputation: {
       score: proof.score,
       level: proof.level,
@@ -45,6 +61,5 @@ export async function GET(
     },
     verifiedAt: proof.verifiedAt,
     expiresAt: proof.expiresAt,
-    status: effectiveStatus,
   });
 }

@@ -26,12 +26,14 @@ export async function GET(request: Request) {
 
   if (mode === 'demo') {
     const selected = MOCK_FINANCIAL_PROFILES[profileKey] || MOCK_FINANCIAL_PROFILES.normal;
-    const result = calculateReputation(selected.data);
+    const outcome = calculateReputation(selected.data);
     return NextResponse.json({
       mode: 'demo',
       profileKey,
       profileLabel: selected.label,
-      reputation: result,
+      status: outcome.status,
+      outcome,
+      reputation: outcome.status === 'scored' ? outcome.result : null,
       history: selected.history,
       financialData: selected.data,
     });
@@ -41,25 +43,30 @@ export async function GET(request: Request) {
   let userRecord = getUserFinancialData(userId);
 
   if (!userRecord) {
-    // If no real data exists for userId yet, return empty/insufficient state
+    // No financial record at all. There is no evidence, so there is no score.
     return NextResponse.json({
       mode: 'real',
       userId,
       hasData: false,
+      status: 'insufficient',
       reputation: null,
+      reason: 'No financial evidence has been submitted to FRL.',
       history: [],
       financialData: null,
     });
   }
 
-  const result = calculateReputation(userRecord);
+  const outcome = calculateReputation(userRecord);
   const history = getUserScoreHistory(userId);
 
   return NextResponse.json({
     mode: 'real',
     userId,
     hasData: true,
-    reputation: result,
+    status: outcome.status,
+    outcome,
+    reputation: outcome.status === 'scored' ? outcome.result : null,
+    reason: outcome.status === 'insufficient' ? outcome.reason : undefined,
     history,
     financialData: userRecord,
   });
@@ -108,8 +115,8 @@ export async function POST(request: Request) {
       },
     };
 
-    // Calculate score using Core Engine
-    const reputationResult = calculateReputation(validatedData);
+    // Calculate using the Core Engine. A partial profile yields no score.
+    const outcome = calculateReputation(validatedData);
 
     // Save Real Financial Record
     const recordToSave: UserFinancialRecord = {
@@ -119,22 +126,32 @@ export async function POST(request: Request) {
     };
     saveUserFinancialData(userId, recordToSave);
 
-    // Record Score History (automatically avoids duplicate points on identical scores)
-    const updatedHistory = recordScoreHistory(
-      userId,
-      reputationResult.score,
-      reputationResult.level,
-      'User financial data updated'
-    );
+    // Score history is only written when a real score exists. Nothing is
+    // recorded for an insufficient outcome.
+    let updatedHistory = getUserScoreHistory(userId);
+    if (outcome.status === 'scored') {
+      updatedHistory = recordScoreHistory(
+        userId,
+        outcome.result.score,
+        outcome.result.level,
+        'User financial data updated'
+      );
+    }
 
     return NextResponse.json({
       mode: 'real',
       userId,
       hasData: true,
-      reputation: reputationResult,
+      status: outcome.status,
+      outcome,
+      reputation: outcome.status === 'scored' ? outcome.result : null,
+      reason: outcome.status === 'insufficient' ? outcome.reason : undefined,
       history: updatedHistory,
       financialData: recordToSave,
-      message: 'Financial data updated and reputation recalculated engine-side.',
+      message:
+        outcome.status === 'scored'
+          ? 'Financial data updated and reputation recalculated engine-side.'
+          : 'Financial data saved. FRL requires evidence for every reputation factor before a score can be produced.',
     });
   } catch (error) {
     return NextResponse.json(

@@ -33,6 +33,18 @@ export function CompanyProfileView({ company }: Props) {
   const hasScore = company.reputationScore !== null && company.reputationScore !== undefined;
   const dims = company.dimensions;
 
+  // Development sample records must never read as a real, verified company.
+  const isDemoCompany = company.sourceInfo?.sourceType === 'internal_demo';
+
+  // The UI states the record's real verification status. It never asserts one.
+  const verificationStatus = company.sourceInfo?.verificationStatus;
+  const verificationLabel =
+    verificationStatus === 'verified'
+      ? 'Verified by FRL'
+      : verificationStatus === 'unverified'
+        ? 'Not verified by FRL'
+        : 'Verification status not reported';
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-24">
       {/* Top Sticky Navbar */}
@@ -81,6 +93,19 @@ export function CompanyProfileView({ company }: Props) {
 
       {/* Main Container */}
       <main className="pt-24 max-w-5xl mx-auto px-6">
+        {isDemoCompany && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-100 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-xs leading-relaxed">
+              <strong className="block uppercase tracking-wider text-amber-300 mb-1">
+                Demo data — not a real company
+              </strong>
+              This record is development sample data. It is not a verified company, the score
+              shown below is not a real reputation, and FRL has verified nothing about it.
+            </div>
+          </div>
+        )}
+
         {viewMode === 'workspace' ? (
           <div className="space-y-6">
             <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between">
@@ -118,7 +143,12 @@ export function CompanyProfileView({ company }: Props) {
                       <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
                         {company.name}
                       </h1>
-                      {company.isClaimed ? (
+                      {isDemoCompany ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-400/40">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                          Demo Data — Not a Real Company
+                        </span>
+                      ) : company.isClaimed ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
                           <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
                           Official Claimed Profile
@@ -131,14 +161,39 @@ export function CompanyProfileView({ company }: Props) {
                       )}
                     </div>
                     <p className="text-xs text-slate-400 mt-1">
-                      Reg ID: <span className="font-mono text-slate-300">{company.registration_no}</span> &bull; {company.industry} &bull; {company.country || 'Global'} &bull; Founded {company.founded_date}
-                      {company.sourceInfo && (
-                        <span className="ml-2.5 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                          <Globe className="w-3 h-3 text-indigo-400" />
-                          Source: {company.sourceInfo.provider}
-                        </span>
-                      )}
+                      Reg ID: <span className="font-mono text-slate-300">{company.registration_no}</span> &bull; {company.industry} &bull; {company.country ?? 'Country not reported'} &bull; Founded {company.founded_date}
                     </p>
+
+                    {/* Compact provenance strip inside the existing header card.
+                        Answers "where did this information come from?" without adding a
+                        new section. Every value falls back to an honest unknown state. */}
+                    <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px]">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Globe className="w-3 h-3 text-indigo-400" />
+                        <span className="text-slate-500">Source</span>
+                        <span className="font-semibold text-slate-200">
+                          {company.sourceInfo?.provider ?? 'Not reported'}
+                        </span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <ShieldCheck className="w-3 h-3 text-indigo-400" />
+                        <span className="text-slate-500">Verification</span>
+                        <span className="font-semibold text-slate-200">{verificationLabel}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Calendar className="w-3 h-3 text-indigo-400" />
+                        <span className="text-slate-500">Retrieved</span>
+                        <span className="font-semibold text-slate-200">
+                          {company.sourceInfo?.retrievedAt
+                            ? new Date(company.sourceInfo.retrievedAt).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })
+                            : 'Not reported'}
+                        </span>
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -167,12 +222,22 @@ export function CompanyProfileView({ company }: Props) {
                   <p className="text-xs text-slate-400 max-w-lg leading-relaxed">
                     Composite business reputation generated from verified payment reliability, historical transactions, and financial stability indicators available to FRL.
                   </p>
+
+                  {/* State B: Insufficient Data is a legitimate data state, not an error.
+                      Applies to any company record that carries no score, demo or real. */}
+                  {!hasScore && (
+                    <p className="text-xs text-amber-300/90 max-w-lg leading-relaxed">
+                      <strong className="font-bold">Insufficient Data.</strong> FRL does not
+                      have enough verified financial evidence to calculate a reputation score for
+                      this company. This is a normal data state, not an error.
+                    </p>
+                  )}
                 </div>
 
                 {/* Score Hero Badge */}
                 <div className="text-left md:text-right shrink-0 bg-slate-950 p-6 rounded-2xl border border-white/10 min-w-[220px]">
                   <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
-                    Reputation Score
+                    {isDemoCompany ? 'Demo Reputation Score (not real)' : 'Reputation Score'}
                   </span>
                   {hasScore ? (
                     <div>
@@ -183,7 +248,7 @@ export function CompanyProfileView({ company }: Props) {
                         <span className="text-sm font-semibold text-slate-500">/ 1000</span>
                       </div>
                       <span className="inline-block mt-2 px-3 py-0.5 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        {company.reputationLevel || 'EXCELLENT'}
+                        {company.reputationLevel ?? 'Insufficient Data'}
                       </span>
                     </div>
                   ) : (
@@ -345,28 +410,28 @@ export function CompanyProfileView({ company }: Props) {
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                   <h4 className="text-xs font-bold text-slate-300 uppercase mb-1">Payment Reliability</h4>
                   <p className="text-xs text-slate-400">
-                    {dims?.paymentReliability?.explanation || 'Based on available payment history.'}
+                    {dims?.paymentReliability?.explanation ?? 'Insufficient Data'}
                   </p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                   <h4 className="text-xs font-bold text-slate-300 uppercase mb-1">Business Reliability</h4>
                   <p className="text-xs text-slate-400">
-                    {dims?.businessReliability?.explanation || 'Based on available verified business records.'}
+                    {dims?.businessReliability?.explanation ?? 'Insufficient Data'}
                   </p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                   <h4 className="text-xs font-bold text-slate-300 uppercase mb-1">Financial Stability</h4>
                   <p className="text-xs text-slate-400">
-                    {dims?.financialStability?.explanation || 'Based on available financial indicators.'}
+                    {dims?.financialStability?.explanation ?? 'Insufficient Data'}
                   </p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                   <h4 className="text-xs font-bold text-slate-300 uppercase mb-1">Transaction History</h4>
                   <p className="text-xs text-slate-400">
-                    {dims?.transactionHistory?.explanation || 'Based on verified transaction activity.'}
+                    {dims?.transactionHistory?.explanation ?? 'Insufficient Data'}
                   </p>
                 </div>
               </div>
@@ -393,7 +458,7 @@ export function CompanyProfileView({ company }: Props) {
 
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
                   <span className="text-[11px] text-slate-500 uppercase font-bold block mb-1">Country</span>
-                  <span className="text-sm font-semibold text-slate-100">{company.country || 'Thailand'}</span>
+                  <span className="text-sm font-semibold text-slate-100">{company.country ?? 'Country not reported'}</span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
@@ -411,7 +476,7 @@ export function CompanyProfileView({ company }: Props) {
               </div>
               <h2 className="text-xl font-bold text-white mb-3">About {company.name}</h2>
               <p className="text-sm text-slate-300 leading-relaxed max-w-3xl">
-                {company.overview || `${company.name} operates in the ${company.industry} industry.`}
+                {company.overview ?? 'Company overview not available.'}
               </p>
             </section>
 
@@ -460,10 +525,13 @@ export function CompanyProfileView({ company }: Props) {
                     📊 Data Status
                   </h3>
                   <p className="text-xs text-slate-300 font-semibold mb-2">
-                    {company.quickSummary?.dataStatus || 'Public Data Only'}
+                    {company.quickSummary?.dataStatus ?? 'Data status not reported'}
                   </p>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Source data verified by FRL engine protocol.
+                    {verificationLabel}
+                    {company.sourceInfo?.provider
+                      ? ` Source: ${company.sourceInfo.provider}.`
+                      : ' No source recorded for this record.'}
                   </p>
                 </div>
               </div>
