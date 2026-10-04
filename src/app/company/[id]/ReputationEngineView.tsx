@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   LayoutDashboard,
   type LucideIcon,
+  X,
   TrendingUp,
   Activity,
   Sliders,
@@ -32,7 +33,6 @@ import {
   ChevronRight,
   Building2,
   Award,
-  BarChart3,
   Layers,
   Clock,
   Shield,
@@ -261,6 +261,12 @@ type ReadinessState =
   | { kind: 'none'; reason: string }
   | { kind: 'insufficient'; reason: string; missing: string[] }
   | { kind: 'scored'; result: ReputationResult };
+
+const DISCLOSURE_LABEL: Record<string, string> = {
+  score_only: 'Score only',
+  score_and_level: 'Score and level',
+  score_and_factors: 'Score, level and factors',
+};
 
 const WORKSPACE_TABS: Array<{ id: MainNavTab; label: string; icon: LucideIcon }> = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -1608,381 +1614,584 @@ export function ReputationEngineView({
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* TAB 3: VERIFY COMPANY (Sections 6 & 7)                                   */}
+{/* ========================================================================= */}
+      {/* TAB 3: VERIFICATION CENTRE                                               */}
       {/* ========================================================================= */}
       {activeTab === 'verify' && (
-        <div className="space-y-8 max-w-3xl mx-auto">
-          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
-            <div className="border-b border-white/10 pb-4">
-              <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-                <ShieldCheck className="w-6 h-6 text-indigo-400" />
-                Verify a Company
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Review a company's verified FRL reputation information before doing business.
-              </p>
-            </div>
+        <div className="space-y-6">
+          <Card tone="base" padding="md">
+            <CardHeader>
+              <div>
+                <CardTitle>Verification centre</CardTitle>
+                <CardDescription>
+                  Look up a reputation proof or a controlled disclosure link. FRL reports the
+                  record&apos;s real state and shows a score only when that record is valid.
+                </CardDescription>
+              </div>
+            </CardHeader>
 
-            {/* Verification Search Bar */}
-            <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                Enter FRL Verification Link or ID
-              </label>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="text"
-                  value={verifyInput}
-                  onChange={(e) => setVerifyInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleVerifyCompanyLookup()}
-                  placeholder="Paste verification URL or ID (e.g. proof_... or share_...)"
-                  className="flex-1 px-4 py-3 bg-black/40 border border-white/15 rounded-xl text-slate-100 text-xs placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                />
-
-                <button
-                  onClick={() => handleVerifyCompanyLookup()}
-                  disabled={verifyingCompany || !verifyInput.trim()}
-                  className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 shrink-0"
+            <CardContent className="mt-5 space-y-5">
+              <div>
+                <label
+                  htmlFor="frl-verify-input"
+                  className="mb-1.5 block text-caption font-medium text-fg-secondary"
                 >
-                  {verifyingCompany ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                  Verify Company
-                </button>
-              </div>
-
-              {/* Sample Quick Testing Links */}
-              <div className="flex items-center gap-2 pt-2 text-[11px] text-slate-400 flex-wrap">
-                <span>Try sample links:</span>
-                {proofs[0] && (
-                  <button
-                    onClick={() => {
-                      setVerifyInput(proofs[0].id);
-                      handleVerifyCompanyLookup(proofs[0].id);
-                    }}
-                    className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-indigo-300 font-mono"
+                  FRL proof or disclosure reference
+                </label>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    id="frl-verify-input"
+                    type="text"
+                    value={verifyInput}
+                    onChange={(e) => setVerifyInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleVerifyCompanyLookup()}
+                    placeholder="Paste a verification link, proof_… or share_…"
+                    aria-describedby="frl-verify-hint"
+                    className="h-11 w-full min-w-0 flex-1 rounded-md border border-white/15 bg-black/40 px-3 text-sm text-slate-100 transition-[border-color,background-color] duration-[var(--frl-dur-fast)] placeholder:text-fg-subtle hover:border-white/25 focus:border-primary/60 focus:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  />
+                  <Button
+                    onClick={() => handleVerifyCompanyLookup()}
+                    disabled={!verifyInput.trim()}
+                    loading={verifyingCompany}
+                    icon={<ShieldCheck className="h-4 w-4" />}
+                    className="shrink-0"
                   >
-                    {proofs[0].id.substring(0, 16)}...
-                  </button>
-                )}
-                {shares[0] && (
-                  <button
-                    onClick={() => {
-                      setVerifyInput(shares[0].shareToken);
-                      handleVerifyCompanyLookup(shares[0].shareToken);
-                    }}
-                    className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-indigo-300 font-mono"
-                  >
-                    {shares[0].shareToken.substring(0, 16)}...
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {verificationError && (
-              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2">
-                <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>{verificationError}</span>
-              </div>
-            )}
-
-            {verificationResult && verificationResult.valid !== true && (
-              <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex items-start gap-3">
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <strong className="block uppercase tracking-wider">This record is not valid</strong>
-                  <span className="text-amber-300/90">
-                    Status: {String(verificationResult.status || 'unknown')}. FRL shows no score
-                    for this record because it is no longer a valid verification.
-                  </span>
+                    Verify
+                  </Button>
                 </div>
-              </div>
-            )}
-
-            {/* SECTION 7: COMPANY VERIFICATION RESULT PAGE */}
-            {verificationResult && verificationResult.valid === true && (
-              <div className="p-8 rounded-3xl bg-black/40 border border-white/15 space-y-6 text-center shadow-2xl">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-extrabold uppercase tracking-widest">
-                  <CheckCircle2 className="w-4 h-4" />
-                  ✓ Verified by FRL
-                </div>
-
-                <h3 className="text-2xl font-black text-slate-100">
-                  Business Reputation
-                </h3>
-
-                <div className="py-4 border-y border-white/10 space-y-1">
-                  <div className="text-6xl font-black text-white tracking-tight">
-                    {verificationResult.reputation?.score || 'N/A'}
-                  </div>
-                  {verificationResult.reputation?.level && (
-                    <div className="text-lg font-bold text-indigo-400 uppercase tracking-wider">
-                      {verificationResult.reputation.level}
-                    </div>
-                  )}
-                </div>
-
-                {/* 4 Major Reputation Dimensions Breakdown */}
-                <div className="space-y-3 text-left pt-2">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-center mb-4">
-                    Verified Reputation Dimensions
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                      <span className="text-slate-400 font-medium">Payment Reliability</span>
-                      <strong className="text-slate-100 font-bold text-sm mt-1">
-                        {verificationResult.reputation?.factors?.paymentReliability || b2bDimensions.paymentReliability}
-                      </strong>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                      <span className="text-slate-400 font-medium">Business Reliability</span>
-                      <strong className="text-slate-100 font-bold text-sm mt-1">
-                        {b2bDimensions.businessReliability}
-                      </strong>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                      <span className="text-slate-400 font-medium">Financial Stability</span>
-                      <strong className="text-slate-100 font-bold text-sm mt-1">
-                        {verificationResult.reputation?.factors?.incomeConsistency || b2bDimensions.financialStability}
-                      </strong>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                      <span className="text-slate-400 font-medium">Transaction History</span>
-                      <strong className="text-slate-100 font-bold text-sm mt-1">
-                        {verificationResult.reputation?.factors?.transactionHistory || b2bDimensions.transactionHistory}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Metadata Dates */}
-                <div className="grid grid-cols-2 gap-3 text-xs py-3 px-4 rounded-xl bg-black/30 border border-white/5">
-                  <div>
-                    <span className="block text-slate-500 text-[10px] uppercase">Verified Date</span>
-                    <strong className="text-slate-200">{new Date(verificationResult.verifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-[10px] uppercase">Expiration Date</span>
-                    <strong className="text-slate-200">{new Date(verificationResult.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
-                  </div>
-                </div>
-
-                {/* Official Non-Sensational Explanation (Section 7) */}
-                <p className="text-xs text-slate-400 leading-relaxed pt-3 border-t border-white/10 italic">
-                  "FRL verifies the reputation information shown here. This information is intended to support business decisions and does not guarantee future business performance."
+                <p id="frl-verify-hint" className="mt-1.5 text-caption leading-relaxed text-fg-subtle">
+                  A full <code className="font-mono">/verify/…</code> link or a bare reference both
+                  work. FRL checks the record it resolves to; it never accepts a score from the
+                  link itself.
                 </p>
               </div>
-            )}
-          </div>
+
+              {(proofs[0] || shares[0]) && (
+                <div className="flex flex-wrap items-center gap-2 text-caption text-fg-muted">
+                  <span>Your own references:</span>
+                  {proofs[0] && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerifyInput(proofs[0].id);
+                        handleVerifyCompanyLookup(proofs[0].id);
+                      }}
+                      className="rounded-sm border border-white/10 bg-white/[0.04] px-2 py-1 font-mono text-primary-hover transition-colors hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover"
+                    >
+                      {proofs[0].id.replace(/^proof_/, '').slice(0, 12)}…
+                    </button>
+                  )}
+                  {shares[0] && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerifyInput(shares[0].shareToken);
+                        handleVerifyCompanyLookup(shares[0].shareToken);
+                      }}
+                      className="rounded-sm border border-white/10 bg-white/[0.04] px-2 py-1 font-mono text-primary-hover transition-colors hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover"
+                    >
+                      {shares[0].shareToken.replace(/^share_/, '').slice(0, 12)}…
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {verificationError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 rounded-md border border-rose-500/20 bg-rose-500/10 p-4 text-body-sm leading-relaxed text-rose-300"
+                >
+                  <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" aria-hidden="true" />
+                  <span>{verificationError}</span>
+                </div>
+              )}
+
+              {/* The result is shown only when FRL returned one. `valid` is the
+                  API's own determination; the page never re-derives it, and a
+                  record that is not valid never carries a reputation payload to
+                  display in the first place. */}
+              {verificationResult && (
+                verificationResult.valid === true ? (
+                  <div className="space-y-5 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.04] p-5">
+                    <div className="text-center">
+                      <Badge tone="success" size="md" dot className="mx-auto">
+                        Valid proof
+                      </Badge>
+                      <h3 className="mt-3 text-h3 text-white">Reputation verified</h3>
+                      <p className="mx-auto mt-2 max-w-md text-body-sm leading-relaxed text-fg-muted">
+                        This proof is active. FRL shows the reputation recorded when it was issued.
+                        The figures below are a snapshot and may have changed since.
+                      </p>
+                    </div>
+
+                    <div className="flex items-baseline justify-center gap-3 border-y border-white/[0.06] py-6">
+                      <span className="text-metric text-white">
+                        {verificationResult.reputation?.score ?? '—'}
+                      </span>
+                      <span className="text-body-sm text-fg-muted">/ 850</span>
+                      {verificationResult.reputation?.level && (
+                        <span className="text-h4 uppercase tracking-[0.08em] text-primary-hover">
+                          {verificationResult.reputation.level}
+                        </span>
+                      )}
+                    </div>
+
+                    <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {[
+                        ['Payment Reliability', verificationResult.reputation?.factors?.paymentReliability],
+                        ['Income Consistency', verificationResult.reputation?.factors?.incomeConsistency],
+                        ['Spending Stability', verificationResult.reputation?.factors?.spendingStability],
+                        ['Saving Behaviour', verificationResult.reputation?.factors?.savingBehavior],
+                        ['Debt Behaviour', verificationResult.reputation?.factors?.debtBehavior],
+                        ['Transaction History', verificationResult.reputation?.factors?.transactionHistory],
+                      ].map(([label, value]) => (
+                        <div
+                          key={String(label)}
+                          className="flex items-baseline justify-between gap-3 rounded-md border border-white/[0.08] bg-white/[0.02] px-3.5 py-2.5"
+                        >
+                          <dt className="text-caption text-fg-muted">{label}</dt>
+                          <dd className="text-body-sm font-medium text-slate-100">
+                            {value ?? 'Not reported'}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+
+                    <dl className="grid grid-cols-1 gap-3 border-t border-white/[0.06] pt-4 sm:grid-cols-3">
+                      <div>
+                        <dt className="text-caption text-fg-subtle">Verified</dt>
+                        <dd className="mt-0.5 text-body-sm text-slate-100">
+                          {verificationResult.verifiedAt
+                            ? new Date(verificationResult.verifiedAt).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })
+                            : 'Not reported'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-caption text-fg-subtle">Expires</dt>
+                        <dd className="mt-0.5 text-body-sm text-slate-100">
+                          {verificationResult.expiresAt
+                            ? new Date(verificationResult.expiresAt).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })
+                            : 'Not reported'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-caption text-fg-subtle">Evidence policy</dt>
+                        <dd className="mt-0.5 text-body-sm text-slate-100">
+                          {verificationResult.policyVersion || 'Not reported'}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <p className="text-caption leading-relaxed text-fg-subtle">
+                      A verified proof supports a business decision. It does not guarantee future
+                      business performance.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 rounded-lg border border-white/10 bg-white/[0.02] p-5">
+                    <div className="text-center">
+                      <Badge
+                        tone={
+                          verificationResult.status === 'revoked'
+                            ? 'danger'
+                            : verificationResult.status === 'expired'
+                              ? 'warning'
+                              : 'insufficient'
+                        }
+                        size="md"
+                        dot
+                        className="mx-auto"
+                      >
+                        {verificationResult.status === 'revoked'
+                          ? 'Proof revoked'
+                          : verificationResult.status === 'expired'
+                            ? 'Proof expired'
+                            : 'Invalid proof'}
+                      </Badge>
+                      <h3 className="mt-3 text-h3 text-white">
+                        {verificationResult.status === 'revoked'
+                          ? 'This proof was revoked'
+                          : verificationResult.status === 'expired'
+                            ? 'This proof has expired'
+                            : 'This record is not valid'}
+                      </h3>
+                      <p className="mx-auto mt-2 max-w-md text-body-sm leading-relaxed text-fg-muted">
+                        {verificationResult.status === 'revoked'
+                          ? 'The owner revoked this proof, so it is no longer a valid verification. FRL displays no score or level for it.'
+                          : verificationResult.status === 'expired'
+                            ? 'This proof is past its expiry date, so it is no longer a valid verification. FRL displays no score or level for it.'
+                            : 'FRL could not resolve this reference to a valid record, so it displays no score, level or factor result.'}
+                      </p>
+                    </div>
+
+                    <dl className="grid grid-cols-1 gap-3 border-t border-white/[0.06] pt-4 sm:grid-cols-3">
+                      <div>
+                        <dt className="text-caption text-fg-subtle">Status</dt>
+                        <dd className="mt-0.5 text-body-sm capitalize text-slate-100">
+                          {String(verificationResult.status || 'unknown')}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-caption text-fg-subtle">Verified</dt>
+                        <dd className="mt-0.5 text-body-sm text-slate-100">
+                          {verificationResult.verifiedAt
+                            ? new Date(verificationResult.verifiedAt).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })
+                            : 'Not reported'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-caption text-fg-subtle">Evidence policy</dt>
+                        <dd className="mt-0.5 text-body-sm text-slate-100">
+                          {verificationResult.policyVersion || 'Not reported'}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                )
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: PROOFS & SELECTIVE DISCLOSURE SHARES (Sections 11 & 12)             */}
+      {/* TAB 4: PROOFS & CONTROLLED DISCLOSURES                                      */}
       {/* ========================================================================= */}
       {activeTab === 'proofs' && (
-        <div className="space-y-8">
-          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+        <div className="space-y-6">
+          <Card tone="base" padding="md">
+            <CardHeader>
               <div>
-                <h2 className="text-2xl font-bold text-slate-100">My Reputation Proofs</h2>
-                {/* Section 12 Required Wording */}
-                <p className="text-xs text-slate-400 mt-1 max-w-xl">
-                  Create a verified snapshot of your current Business Reputation that you can share with another company.
+                <CardTitle>Reputation proofs</CardTitle>
+                <CardDescription>
+                  A proof is a dated snapshot of your reputation at a moment in time, produced by
+                  the FRL engine from your submitted evidence. Anyone holding the link can read it
+                  until it expires or you revoke it.
+                </CardDescription>
+              </div>
+              {canGenerateProof ? (
+                <Button
+                  onClick={handleGenerateProof}
+                  loading={generatingProof}
+                  icon={<ShieldCheck className="h-4 w-4" />}
+                  className="shrink-0"
+                >
+                  Create Proof
+                </Button>
+              ) : null}
+            </CardHeader>
+
+            <CardContent className="mt-5 space-y-6">
+              {proofError && (
+                <div
+                  role="alert"
+                  className="rounded-md border border-rose-500/20 bg-rose-500/10 p-4 text-body-sm leading-relaxed text-rose-300"
+                >
+                  {proofError}
+                </div>
+              )}
+
+              {/* Eligibility. A proof is minted only from a scored outcome, so
+                  without one the honest answer is that none is available. */}
+              {!canGenerateProof && (
+                <div className="flex items-start gap-3 rounded-md border border-white/10 bg-white/[0.02] p-4">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <h3 className="text-body-sm font-semibold text-slate-100">Proof unavailable</h3>
+                    <p className="mt-1 text-body-sm leading-relaxed text-fg-muted">
+                      FRL can only mint a proof from a scored reputation, and you do not have one
+                      yet. Complete your financial evidence first; the engine will produce a score,
+                      and a proof becomes available at that point.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-label text-fg-subtle">Active proofs</h3>
+                  <Badge tone="neutral" size="sm">
+                    {proofs.filter((p) => p.status === 'active').length}
+                  </Badge>
+                </div>
+
+                {proofsLoading ? (
+                  <div className="flex items-center justify-center gap-2 rounded-md border border-white/[0.06] p-6 text-body-sm text-fg-muted">
+                    <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                    Loading proofs…
+                  </div>
+                ) : proofs.filter((p) => p.status === 'active').length === 0 ? (
+                  <div className="rounded-md border border-dashed border-white/10 bg-white/[0.02] p-6 text-center text-body-sm leading-relaxed text-fg-muted">
+                    {canGenerateProof
+                      ? 'No proof has been created yet. Create one to share a verified snapshot of your current reputation.'
+                      : 'No proof exists, and none can be created until your evidence supports a reputation score.'}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {proofs
+                      .filter((p) => p.status === 'active')
+                      .map((proof) => (
+                        <div
+                          key={proof.id}
+                          className="rounded-md border border-white/10 bg-white/[0.02] p-4 transition-[border-color,background-color] duration-[var(--frl-dur-normal)] hover:border-white/20"
+                        >
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-caption text-slate-300">
+                                  {proof.id.replace(/^proof_/, '').slice(0, 12)}
+                                </span>
+                                <Badge tone="success" size="sm" dot>
+                                  Active
+                                </Badge>
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-baseline gap-3">
+                                <span className="text-h3 text-white">{proof.score}</span>
+                                <span className="text-body-sm text-fg-muted">/ 850</span>
+                                <span className="text-body-sm uppercase tracking-[0.08em] text-primary-hover">
+                                  {proof.level}
+                                </span>
+                              </div>
+                              <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+                                <div className="flex items-baseline gap-1.5">
+                                  <dt className="text-caption text-fg-subtle">Issued</dt>
+                                  <dd className="text-caption text-slate-300">
+                                    {new Date(proof.verifiedAt).toLocaleDateString('en-GB', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })}
+                                  </dd>
+                                </div>
+                                <div className="flex items-baseline gap-1.5">
+                                  <dt className="text-caption text-fg-subtle">Expires</dt>
+                                  <dd className="text-caption text-slate-300">
+                                    {new Date(proof.expiresAt).toLocaleDateString('en-GB', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })}
+                                  </dd>
+                                </div>
+                                <div className="flex items-baseline gap-1.5">
+                                  <dt className="text-caption text-fg-subtle">Policy</dt>
+                                  <dd className="text-caption text-slate-300">
+                                    {proof.policyVersion || 'Not reported'}
+                                  </dd>
+                                </div>
+                              </dl>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedProofForShare(proof);
+                                  setShareModalOpen(true);
+                                }}
+                                icon={<Share2 className="h-3.5 w-3.5" />}
+                              >
+                                Share
+                              </Button>
+                              <a
+                                href={`/verify/${proof.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-white/20 px-3 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/5"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                                View
+                              </a>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleCopyLink(proof.id)}
+                                icon={
+                                  copiedProofId === proof.id ? (
+                                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="h-3.5 w-3.5" />
+                                  )
+                                }
+                              >
+                                {copiedProofId === proof.id ? 'Copied' : 'Copy link'}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRevokeProof(proof.id)}
+                                className="text-rose-300 hover:text-rose-200"
+                                icon={<XCircle className="h-3.5 w-3.5" />}
+                              >
+                                Revoke
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 border-t border-white/[0.06] pt-6">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-label text-fg-subtle">Controlled disclosure links</h3>
+                  <Badge tone="neutral" size="sm">
+                    {shares.length}
+                  </Badge>
+                </div>
+                <p className="text-caption leading-relaxed text-fg-subtle">
+                  A disclosure link releases less than a proof. You choose whether it carries the
+                  score alone, the score and level, or the factor results.
                 </p>
-              </div>
 
-              {/* Primary Action Button (Section 12) */}
-              <button
-                onClick={handleGenerateProof}
-                disabled={generatingProof || (!isDemo && !realHasData)}
-                className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-600/30 flex items-center gap-2 shrink-0"
-              >
-                {generatingProof ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                Create Reputation Proof
-              </button>
-            </div>
-
-            {proofError && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
-                {proofError}
-              </div>
-            )}
-
-            {/* Active Proofs Section */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Active Reputation Proofs
-              </h3>
-
-              {proofsLoading ? (
-                <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Loading proofs...
-                </div>
-              ) : proofs.filter(p => p.status === 'active').length === 0 ? (
-                <div className="p-8 rounded-2xl border border-dashed border-slate-800 bg-black/20 text-center text-slate-400 text-xs">
-                  You haven't created an active Reputation Proof yet. Click "Create Reputation Proof" above to generate a verified snapshot for business sharing.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {proofs.filter(p => p.status === 'active').map((proof) => (
-                    <div
-                      key={proof.id}
-                      className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono font-bold text-slate-200">
-                            Proof #{proof.id.substring(6, 14)}
-                          </span>
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            Active
-                          </span>
+                {sharesLoading ? (
+                  <div className="p-4 text-center text-body-sm text-fg-muted">Loading disclosures…</div>
+                ) : shares.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-white/10 bg-white/[0.02] p-6 text-center text-body-sm text-fg-muted">
+                    No disclosure links yet. Create one from an active proof to control what that
+                    recipient can see.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {shares.map((share) => (
+                      <div
+                        key={share.id}
+                        className="flex flex-col gap-3 rounded-md border border-white/10 bg-white/[0.02] p-4 lg:flex-row lg:items-center lg:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge tone="primary" size="sm">
+                              {DISCLOSURE_LABEL[share.disclosureLevel] ?? share.disclosureLevel}
+                            </Badge>
+                            <span className="font-mono text-caption text-fg-muted">
+                              {share.shareToken.replace(/^share_/, '').slice(0, 12)}…
+                            </span>
+                            <Badge
+                              tone={
+                                share.status === 'active'
+                                  ? 'success'
+                                  : share.status === 'revoked'
+                                    ? 'danger'
+                                    : 'warning'
+                              }
+                              size="sm"
+                            >
+                              {share.status === 'active'
+                                ? 'Active'
+                                : share.status === 'revoked'
+                                  ? 'Revoked'
+                                  : 'Expired'}
+                            </Badge>
+                          </div>
+                          <p className="mt-1.5 text-caption text-fg-muted">
+                            Expires{' '}
+                            {new Date(share.expiresAt).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </p>
                         </div>
 
-                        <div className="flex items-center gap-3 text-xs text-slate-400 pt-1">
-                          <strong className="text-white font-extrabold text-sm">{proof.score} {proof.level}</strong>
-                          <span>•</span>
-                          <span>Expires: {new Date(proof.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                        <button
-                          onClick={() => {
-                            setSelectedProofForShare(proof);
-                            setShareModalOpen(true);
-                          }}
-                          className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1"
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                          Create Share Link
-                        </button>
-
-                        <a
-                          href={`/verify/${proof.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-medium transition-colors flex items-center gap-1"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          View
-                        </a>
-
-                        <button
-                          onClick={() => handleCopyLink(proof.id)}
-                          className="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-200 text-xs font-medium transition-colors flex items-center gap-1"
-                        >
-                          {copiedProofId === proof.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                          Copy Link
-                        </button>
-
-                        <button
-                          onClick={() => handleRevokeProof(proof.id)}
-                          className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium transition-colors flex items-center gap-1"
-                        >
-                          <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                          Revoke
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Controlled Reputation Disclosure Shares Section */}
-            <div className="space-y-4 pt-6 border-t border-white/10">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Share2 className="w-4 h-4 text-indigo-400" />
-                Controlled Selective Disclosure Links
-              </h3>
-
-              {sharesLoading ? (
-                <div className="p-4 text-center text-xs text-slate-500">Loading shares...</div>
-              ) : shares.length === 0 ? (
-                <div className="p-6 rounded-2xl border border-dashed border-slate-800 bg-black/20 text-center text-slate-400 text-xs">
-                  No selective disclosure links created yet. Click "Create Share Link" on any active proof to generate a custom disclosure link.
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {shares.map((share) => (
-                    <div
-                      key={share.id}
-                      className="p-4 rounded-xl border border-white/10 bg-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-indigo-300 uppercase font-mono text-[11px] px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20">
-                            {share.disclosureLevel.replace('_', ' ')}
-                          </span>
-                          <span className="text-slate-400 font-mono text-[11px]">{share.shareToken.substring(0, 16)}...</span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            {share.status}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          Expires: {new Date(share.expiresAt).toLocaleDateString()}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <a
-                          href={`/verify/${share.shareToken}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2.5 py-1.5 rounded-lg bg-white/5 text-slate-200 hover:bg-white/10 text-xs"
-                        >
-                          View
-                        </a>
-                        <button
-                          onClick={() => handleCopyLink(share.shareToken, true)}
-                          className="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-200 hover:bg-indigo-600/40 text-xs"
-                        >
-                          Copy
-                        </button>
-                        {share.status === 'active' && (
-                          <button
-                            onClick={() => handleRevokeShare(share.shareToken)}
-                            className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 text-xs"
+                        <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+                          <a
+                            href={`/verify/${share.shareToken}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex h-9 items-center rounded-md border border-white/20 px-3 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/5"
                           >
-                            Revoke
-                          </button>
-                        )}
+                            View
+                          </a>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleCopyLink(share.shareToken, true)}
+                            icon={<Copy className="h-3.5 w-3.5" />}
+                          >
+                            {copiedShareToken === share.shareToken ? 'Copied' : 'Copy'}
+                          </Button>
+                          {share.status === 'active' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRevokeShare(share.shareToken)}
+                              className="text-rose-300 hover:text-rose-200"
+                              icon={<XCircle className="h-3.5 w-3.5" />}
+                            >
+                              Revoke
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Retired proofs.
+                  A revoked or expired proof shows its reference, its dates and
+                  its state — but never its score. The score it carried is no
+                  longer a current claim, and printing it beside a "revoked"
+                  label is exactly how an old figure gets read as valid. */}
+              {proofs.filter((p) => p.status !== 'active').length > 0 && (
+                <div className="space-y-3 border-t border-white/[0.06] pt-6">
+                  <h3 className="text-label text-fg-subtle">Retired proofs</h3>
+                  <div className="space-y-2">
+                    {proofs
+                      .filter((p) => p.status !== 'active')
+                      .map((proof) => (
+                        <div
+                          key={proof.id}
+                          className="flex flex-col gap-3 rounded-md border border-white/[0.08] bg-white/[0.02] p-4 lg:flex-row lg:items-center lg:justify-between"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono text-caption text-fg-subtle">
+                                {proof.id.replace(/^proof_/, '').slice(0, 12)}
+                              </span>
+                              <Badge
+                                tone={proof.status === 'revoked' ? 'danger' : 'warning'}
+                                size="sm"
+                                dot
+                              >
+                                {proof.status === 'revoked' ? 'Proof revoked' : 'Proof expired'}
+                              </Badge>
+                            </div>
+                            <p className="mt-1.5 text-caption leading-relaxed text-fg-subtle">
+                              {proof.status === 'revoked'
+                                ? 'Withdrawn by its owner. No longer a valid verification, so FRL displays no score for it.'
+                                : 'Past its expiry date. No longer a valid verification, so FRL displays no score for it.'}
+                            </p>
+                          </div>
+                          <span className="text-caption text-fg-subtle lg:shrink-0">
+                            Issued{' '}
+                            {new Date(proof.verifiedAt).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               )}
-            </div>
-
-            {/* Past Proofs Section (Section 11) */}
-            {proofs.filter(p => p.status !== 'active').length > 0 && (
-              <div className="space-y-4 pt-6 border-t border-white/10">
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Past Proofs (Expired / Revoked)
-                </h3>
-
-                <div className="space-y-2 opacity-70">
-                  {proofs.filter(p => p.status !== 'active').map((proof) => (
-                    <div key={proof.id} className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="font-mono text-slate-400">Proof #{proof.id.substring(6, 14)}</span>
-                        <span className="ml-2 font-bold text-slate-300">{proof.score} {proof.level}</span>
-                      </div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 uppercase">
-                        {proof.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -2111,74 +2320,151 @@ export function ReputationEngineView({
       )}
 
 
-      {/* SHARE LINK CREATION MODAL */}
+{/* Controlled disclosure share modal.
+
+          The disclosure level is a real choice about how much the recipient
+          learns, so it is a radiogroup: one tab stop, arrow keys, and a single
+          code path per option. The previous markup wrapped each radio in a
+          clickable <label>, so a click on the label fired both the label's own
+          handler and the input's onChange. */}
       {shareModalOpen && selectedProofForShare && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-md p-6 rounded-3xl bg-slate-900 border border-white/15 shadow-2xl space-y-6 text-left">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2">
-                <Share2 className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-lg font-bold text-slate-100">Create Controlled Share Link</h3>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="frl-share-title"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+        >
+          <div className="my-8 w-full max-w-lg rounded-lg border border-white/15 bg-slate-900 p-5 shadow-[var(--shadow-float)] sm:p-6">
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Share2 className="h-5 w-5 shrink-0 text-primary-hover" aria-hidden="true" />
+                <h2 id="frl-share-title" className="text-h3 text-slate-100">
+                  Create disclosure link
+                </h2>
               </div>
-              <button onClick={() => setShareModalOpen(false)} className="text-slate-400 hover:text-white text-sm">✕</button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShareModalOpen(false)}
+                aria-label="Close"
+                className="-mr-2 -mt-1 shrink-0"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
             </div>
 
-            <div className="space-y-2">
-              <span className="text-xs text-slate-400 font-medium">Selected Proof Baseline:</span>
-              <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between text-xs">
-                <span className="font-mono text-slate-200 font-bold">Proof #{selectedProofForShare.id.substring(6, 14)}</span>
-                <span className="text-indigo-400 font-bold">Score: {selectedProofForShare.score} ({selectedProofForShare.level})</span>
+            <div className="mt-5 space-y-5">
+              <div>
+                <span className="text-caption text-fg-muted">Snapshot this link will share</span>
+                <div className="mt-1.5 flex flex-wrap items-center gap-3 rounded-md border border-white/10 bg-white/[0.02] px-4 py-3">
+                  <span className="font-mono text-caption text-fg-muted">
+                    {selectedProofForShare.id.replace(/^proof_/, '').slice(0, 12)}
+                  </span>
+                  <span className="text-body-sm font-medium text-slate-100">
+                    {selectedProofForShare.score} / 850
+                  </span>
+                  <span className="text-caption uppercase tracking-[0.08em] text-primary-hover">
+                    {selectedProofForShare.level}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">Select Disclosure Level</label>
-              <div className="space-y-2 text-xs">
-                <label onClick={() => setSelectedDisclosureLevel('score_only')} className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${selectedDisclosureLevel === 'score_only' ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50' : 'bg-black/30 border-white/10 text-slate-400'}`}>
-                  <input type="radio" name="disclosure" checked={selectedDisclosureLevel === 'score_only'} onChange={() => setSelectedDisclosureLevel('score_only')} className="mt-0.5 accent-indigo-500" />
-                  <div>
-                    <strong className="block text-slate-200 font-semibold mb-0.5">○ Score Only</strong>
-                    <span className="text-slate-400 text-[11px]">Share only my reputation score.</span>
-                  </div>
-                </label>
+              <fieldset>
+                <legend className="mb-2 text-caption font-medium text-fg-secondary">
+                  How much should this recipient see?
+                </legend>
+                <div role="radiogroup" className="space-y-2">
+                  {(
+                    [
+                      ['score_only', 'Score only', 'Share just the number. The safest option.'],
+                      [
+                        'score_and_level',
+                        'Score and level',
+                        'Adds the reputation band, for example Good or Excellent.',
+                      ],
+                      [
+                        'score_and_factors',
+                        'Score, level and factors',
+                        'Adds the six factor results. No raw financial figures are ever included.',
+                      ],
+                    ] as const
+                  ).map(([value, label, description]) => {
+                    const selected = selectedDisclosureLevel === value;
 
-                <label onClick={() => setSelectedDisclosureLevel('score_and_level')} className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${selectedDisclosureLevel === 'score_and_level' ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50' : 'bg-black/30 border-white/10 text-slate-400'}`}>
-                  <input type="radio" name="disclosure" checked={selectedDisclosureLevel === 'score_and_level'} onChange={() => setSelectedDisclosureLevel('score_and_level')} className="mt-0.5 accent-indigo-500" />
-                  <div>
-                    <strong className="block text-slate-200 font-semibold mb-0.5">○ Score + Level</strong>
-                    <span className="text-slate-400 text-[11px]">Share my score and reputation level.</span>
-                  </div>
-                </label>
+                    return (
+                      <label
+                        key={value}
+                        className={`flex cursor-pointer items-start gap-3 rounded-md border p-3.5 transition-colors ${
+                          selected
+                            ? 'border-primary/50 bg-primary/[0.08]'
+                            : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="disclosure"
+                          value={value}
+                          checked={selected}
+                          onChange={() => setSelectedDisclosureLevel(value)}
+                          className="mt-1 h-3.5 w-3.5 shrink-0 accent-indigo-500"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-body-sm font-semibold text-slate-100">
+                            {label}
+                          </span>
+                          <span className="mt-0.5 block text-caption leading-relaxed text-fg-muted">
+                            {description}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
 
-                <label onClick={() => setSelectedDisclosureLevel('score_and_factors')} className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${selectedDisclosureLevel === 'score_and_factors' ? 'bg-indigo-600/20 border-indigo-500/50 text-slate-100 ring-1 ring-indigo-500/50' : 'bg-black/30 border-white/10 text-slate-400'}`}>
-                  <input type="radio" name="disclosure" checked={selectedDisclosureLevel === 'score_and_factors'} onChange={() => setSelectedDisclosureLevel('score_and_factors')} className="mt-0.5 accent-indigo-500" />
-                  <div>
-                    <strong className="block text-slate-200 font-semibold mb-0.5">○ Score + Factors</strong>
-                    <span className="text-slate-400 text-[11px]">Share my score, level, and qualitative reputation factors.</span>
-                  </div>
-                </label>
+              <fieldset>
+                <legend className="mb-2 text-caption font-medium text-fg-secondary">
+                  When should the link stop working?
+                </legend>
+                <div className="grid grid-cols-3 gap-2">
+                  {[7, 30, 90].map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => setSelectedExpiryDays(days)}
+                      aria-pressed={selectedExpiryDays === days}
+                      className={`h-11 rounded-md border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover ${
+                        selectedExpiryDays === days
+                          ? 'border-primary/50 bg-primary/[0.12] text-white'
+                          : 'border-white/10 text-fg-muted hover:border-white/20 hover:text-slate-200'
+                      }`}
+                    >
+                      {days === 90 ? '90 days' : `${days} days`}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-caption text-fg-subtle">
+                  The link stops disclosing anything after this date. You can revoke it sooner.
+                </p>
+              </fieldset>
+
+              {shareError && (
+                <div
+                  role="alert"
+                  className="rounded-md border border-rose-500/20 bg-rose-500/10 p-3 text-body-sm text-rose-300"
+                >
+                  {shareError}
+                </div>
+              )}
+
+              <div className="flex flex-col-reverse gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-end">
+                <Button variant="ghost" onClick={() => setShareModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateShare} loading={creatingShare} icon={<Share2 className="h-4 w-4" />}>
+                  Create link
+                </Button>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">Link Expiration</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[7, 30, 90].map((days) => (
-                  <button key={days} type="button" onClick={() => setSelectedExpiryDays(days)} className={`py-2 rounded-xl text-xs font-medium border transition-colors ${selectedExpiryDays === days ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-black/30 border-white/10 text-slate-400'}`}>
-                    {days === 90 ? '90 days / Max' : `${days} days`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {shareError && <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">{shareError}</div>}
-
-            <div className="pt-2 flex items-center justify-end gap-3 border-t border-white/10">
-              <button type="button" onClick={() => setShareModalOpen(false)} className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium">Cancel</button>
-              <button type="button" onClick={handleCreateShare} disabled={creatingShare} className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5">
-                {creatingShare ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
-                Create Share Link
-              </button>
             </div>
           </div>
         </div>

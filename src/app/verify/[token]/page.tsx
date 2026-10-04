@@ -1,179 +1,294 @@
 import Link from 'next/link';
-import { ShieldCheck, CheckCircle2, Lock, AlertTriangle, XCircle, Eye } from 'lucide-react';
+import {
+  ShieldCheck,
+  CheckCircle2,
+  Lock,
+  AlertTriangle,
+  Eye,
+  Clock,
+  Building2,
+  FileText,
+} from 'lucide-react';
 import { getDb, saveDb, getReputationProof, getReputationShare } from '@/lib/db';
-import { EvidenceTier, Claim, VerificationLink } from '@/lib/types';
+import { getCompanyById } from '@/lib/realCompanyService';
+import { EvidenceTier, Claim, VerificationLink, FactorSummary } from '@/lib/types';
+import { Badge, Button, Container } from '@/components/ui';
+
+/**
+ * FRL verification portal — UI Phase 6.
+ *
+ * PRESENTATION ONLY. Every status decision below is the decision the page made
+ * before this redesign: token resolution order, the expiry and revocation
+ * checks, the `effectiveStatus !== 'active'` gate that withholds a score, the
+ * controlled-disclosure levels, and the audit log write. None of them were
+ * touched. What changed is how those states are shown.
+ *
+ * Two rules shape the presentation:
+ *
+ *   1. A proof that is not active is never shown a score, a level or a factor
+ *      breakdown. The gate that enforced that still does; the visual states
+ *      below simply make it obvious.
+ *   2. The page states only what FRL can actually know. There is no blockchain
+ *      claim, no "cryptographically verified" claim and no security badge,
+ *      because FRL does none of those things. A verification page that
+ *      overstates its own guarantees is worse than one that does not make any.
+ */
+
+/** The six factors a proof can summarise, in the engine's own order. */
+const FACTOR_ROWS: Array<{ key: keyof FactorSummary; label: string }> = [
+  { key: 'paymentReliability', label: 'Payment Reliability' },
+  { key: 'incomeConsistency', label: 'Income Consistency' },
+  { key: 'spendingStability', label: 'Spending Stability' },
+  { key: 'savingBehavior', label: 'Saving Behavior' },
+  { key: 'debtBehavior', label: 'Debt Behavior' },
+  { key: 'transactionHistory', label: 'Transaction History' },
+];
+
+const DISCLOSURE_LABEL: Record<string, string> = {
+  score_only: 'Score only',
+  score_and_level: 'Score and level',
+  score_and_factors: 'Score, level and factors',
+};
+
+const formatDate = (value: string) =>
+  new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+/**
+ * Resolves the company a proof belongs to.
+ *
+ * Returns null rather than a placeholder name when the owner cannot be
+ * resolved, so the page can say "Not reported" instead of implying an identity
+ * it does not have.
+ */
+async function resolveCompanyName(ownerUserId: string | undefined): Promise<string | null> {
+  if (!ownerUserId) return null;
+  const result = await getCompanyById(ownerUserId);
+  return result.status === 'found' ? result.company.name : null;
+}
+
+function FactorGrid({ factors }: { factors: FactorSummary }) {
+  return (
+    <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {FACTOR_ROWS.map(({ key, label }) => (
+        <div
+          key={key}
+          className="flex flex-col justify-between gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] p-3.5"
+        >
+          <dt className="text-caption text-fg-muted">{label}</dt>
+          <dd className="text-body-sm font-semibold text-slate-100">{factors[key]}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Portal chrome. Identical across every state so the frame never changes. */
+function PortalShell({
+  context,
+  children,
+}: {
+  context: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-h-screen bg-canvas pb-20 font-sans text-fg antialiased selection:bg-primary-soft">
+      <nav className="frl-glass-nav fixed top-0 z-50 w-full">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="FRL home">
+            <span className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-white/[0.04]">
+              <ShieldCheck className="h-4 w-4 text-primary-hover" aria-hidden="true" />
+            </span>
+            <span className="flex flex-col leading-none">
+              <span className="text-[0.9375rem] font-semibold tracking-tight text-white">FRL</span>
+              <span className="mt-0.5 text-[0.5625rem] uppercase tracking-[0.14em] text-fg-subtle">
+                Verification
+              </span>
+            </span>
+          </Link>
+          <span className="flex min-w-0 items-center gap-2 text-caption text-fg-muted">
+            <Lock className="h-3.5 w-3.5 shrink-0 text-fg-subtle" aria-hidden="true" />
+            <span className="truncate">{context}</span>
+          </span>
+        </div>
+      </nav>
+
+      <main className="pt-28">
+        <Container width="read">{children}</Container>
+      </main>
+    </div>
+  );
+}
+
+/** The headline verdict. Exactly one of these renders per request. */
+function Verdict({
+  tone,
+  title,
+  children,
+}: {
+  tone: 'success' | 'danger' | 'warning' | 'insufficient';
+  title: string;
+  children?: React.ReactNode;
+}) {
+  const badgeTone =
+    tone === 'success' ? 'success' : tone === 'danger' ? 'danger' : tone === 'warning' ? 'warning' : 'insufficient';
+  const badgeText =
+    tone === 'success'
+      ? 'Valid proof'
+      : tone === 'danger'
+        ? 'Invalid proof'
+        : tone === 'warning'
+          ? 'No longer valid'
+          : 'Insufficient data';
+
+  return (
+    <div className="text-center">
+      <Badge tone={badgeTone} size="md" dot className="mx-auto">
+        {badgeText}
+      </Badge>
+      <h1 className="mt-4 text-h2 text-white">{title}</h1>
+      {children ? <p className="mx-auto mt-3 max-w-lg text-body-sm text-fg-muted">{children}</p> : null}
+    </div>
+  );
+}
 
 export default async function VerifyPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const db = getDb();
 
-  // 1. Check if token matches a ReputationShare (Controlled Selective Disclosure)
+  // ==========================================================================
+  // 1. Controlled selective disclosure (a share link)
+  // ==========================================================================
   const share = getReputationShare(token);
   if (share) {
     const proof = getReputationProof(share.proofId);
-    
-    // Evaluate Server-Side Expiration & Statuses
+
+    // Evaluated server-side, unchanged from before this redesign.
     const isShareExpired = new Date(share.expiresAt) < new Date();
     const isProofExpired = proof ? new Date(proof.expiresAt) < new Date() : true;
     const isRevoked = share.status === 'revoked' || (proof && proof.status === 'revoked');
-    const isExpired = isShareExpired || isProofExpired || share.status === 'expired' || (proof && proof.status === 'expired');
+    const isExpired =
+      isShareExpired ||
+      isProofExpired ||
+      share.status === 'expired' ||
+      (proof && proof.status === 'expired');
     const isActive = !isRevoked && !isExpired && proof && proof.status === 'active';
 
+    const companyName = await resolveCompanyName(proof?.ownerUserId);
+
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-20">
-        <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/50 backdrop-blur-md">
-          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <ShieldCheck className="w-6 h-6 text-indigo-400" />
-              <span className="font-semibold text-lg tracking-tight">FRL Verification Portal</span>
-            </Link>
-            <div className="flex items-center gap-2 text-sm text-slate-400">
-              <Lock className="w-4 h-4 text-emerald-400" />
-              Selective Disclosure
-            </div>
-          </div>
-        </nav>
+      <PortalShell context="Controlled disclosure">
+        <div className="space-y-6">
+          {isRevoked ? (
+            <Verdict tone="danger" title="Disclosure revoked">
+              The owner of this reputation revoked the link. It is no longer a valid disclosure, so
+              FRL shows no reputation data for it.
+            </Verdict>
+          ) : isExpired ? (
+            <Verdict tone="warning" title="Disclosure expired">
+              This disclosure link has passed its expiry date. It is no longer valid, so FRL shows no
+              reputation data for it.
+            </Verdict>
+          ) : isActive ? (
+            <Verdict tone="success" title="Controlled disclosure">
+              The reputation owner chose what to disclose from this link. FRL displays only what the
+              link is configured to release.
+            </Verdict>
+          ) : (
+            <Verdict tone="insufficient" title="Disclosure unavailable">
+              The proof behind this link is not active. FRL shows no reputation data for it.
+            </Verdict>
+          )}
 
-        <main className="pt-28 max-w-xl mx-auto px-6">
-          <div className="p-8 rounded-3xl bg-white/[0.03] border border-white/10 backdrop-blur-xl shadow-2xl space-y-6 text-center">
-            {/* Header Banner */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold tracking-wide uppercase">
-              <Eye className="w-4 h-4 text-indigo-400" />
-              Controlled Reputation Disclosure
-            </div>
-
-            <h1 className="text-2xl font-extrabold text-slate-100">
-              Financial Reputation
-            </h1>
-
-            {/* Status Banners */}
-            {isRevoked && (
-              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm space-y-1">
-                <div className="font-bold flex items-center justify-center gap-2">
-                  <XCircle className="w-5 h-5 text-rose-400" />
-                  REVOKED DISCLOSURE
-                </div>
-                <p>This controlled reputation link has been revoked by its owner.</p>
+          <div className="rounded-lg border border-white/10 bg-slate-900 p-5 shadow-[var(--shadow-surface)] sm:p-7">
+            {/* Identity. Reported as unknown when it cannot be resolved. */}
+            <dl className="space-y-3 border-b border-white/[0.06] pb-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <dt className="flex items-center gap-2 text-caption text-fg-muted">
+                  <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  Company
+                </dt>
+                <dd className="text-body-sm font-medium text-slate-100">
+                  {isActive ? companyName ?? 'Not reported' : 'Not disclosed'}
+                </dd>
               </div>
-            )}
-
-            {isExpired && !isRevoked && (
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm space-y-1">
-                <div className="font-bold flex items-center justify-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-400" />
-                  EXPIRED DISCLOSURE
-                </div>
-                <p>This controlled reputation link has expired.</p>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <dt className="flex items-center gap-2 text-caption text-fg-muted">
+                  <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                  Disclosure level
+                </dt>
+                <dd className="text-body-sm font-medium text-slate-100">
+                  {DISCLOSURE_LABEL[share.disclosureLevel] ?? share.disclosureLevel}
+                </dd>
               </div>
-            )}
+            </dl>
 
-            {isActive && (
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold tracking-widest uppercase">
-                <CheckCircle2 className="w-4 h-4" />
-                ✓ VERIFIED DISCLOSURE
-              </div>
-            )}
-
-            {/* Content Based on Disclosure Level */}
-            {isActive && proof && (
-              <div className="space-y-6 pt-2">
-                {/* Score Only Level */}
-                <div className="py-4 border-y border-white/10 space-y-2">
-                  <span className="text-xs font-mono uppercase text-slate-400">Score</span>
-                  <div className="text-6xl font-black text-white tracking-tight">
-                    {proof.score}
+            {isActive && proof ? (
+              <>
+                <div className="border-b border-white/[0.06] py-7 text-center">
+                  <span className="text-label text-fg-subtle">Disclosed reputation score</span>
+                  <div className="mt-2 flex items-baseline justify-center gap-3">
+                    <span className="text-metric text-white">{proof.score}</span>
+                    <span className="text-body-sm text-fg-muted">/ 850</span>
                   </div>
-
-                  {/* Score + Level or Score + Factors */}
-                  {(share.disclosureLevel === 'score_and_level' || share.disclosureLevel === 'score_and_factors') && (
-                    <div className="text-lg font-bold text-indigo-400 tracking-wider uppercase pt-1">
+                  {(share.disclosureLevel === 'score_and_level' ||
+                    share.disclosureLevel === 'score_and_factors') && (
+                    <p className="mt-2 text-h4 uppercase tracking-[0.08em] text-primary-hover">
                       {proof.level}
-                    </div>
+                    </p>
                   )}
                 </div>
 
-                {/* Score + Factors Grid */}
                 {share.disclosureLevel === 'score_and_factors' && (
-                  <div className="space-y-3 text-left pt-2">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-center mb-4">
-                      Qualitative Reputation Factors
-                    </h3>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                        <span className="text-slate-400 text-xs font-medium">Payment Reliability</span>
-                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.paymentReliability}</span>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                        <span className="text-slate-400 text-xs font-medium">Income Consistency</span>
-                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.incomeConsistency}</span>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                        <span className="text-slate-400 text-xs font-medium">Spending Stability</span>
-                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.spendingStability}</span>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                        <span className="text-slate-400 text-xs font-medium">Saving Behavior</span>
-                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.savingBehavior}</span>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                        <span className="text-slate-400 text-xs font-medium">Debt Behavior</span>
-                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.debtBehavior}</span>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                        <span className="text-slate-400 text-xs font-medium">Transaction History</span>
-                        <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.transactionHistory}</span>
-                      </div>
-                    </div>
+                  <div className="py-6">
+                    <h2 className="mb-4 text-center text-label text-fg-subtle">
+                      Disclosed reputation factors
+                    </h2>
+                    <FactorGrid factors={proof.factorSummary} />
                   </div>
                 )}
-              </div>
+              </>
+            ) : (
+              <p className="py-8 text-center text-body-sm text-fg-subtle">
+                No reputation score, level or factor result is shown for this link.
+              </p>
             )}
 
-            {/* Verification Metadata & Privacy Footer */}
-            <div className="pt-6 border-t border-white/10 space-y-4 text-xs text-slate-400">
-              <div className="flex items-center justify-center gap-2 text-emerald-400 font-medium">
-                {isActive && <CheckCircle2 className="w-4 h-4" />}
-                {isActive ? (
-                  <span>✓ Verified Selective Disclosure</span>
-                ) : (
-                  <span className="text-slate-500">
-                    This disclosure is not valid. FRL shows no reputation data for it.
-                  </span>
-                )}
-              </div>
-
-              {proof && (
-                <div className="grid grid-cols-2 gap-2 text-center py-2.5 px-4 rounded-xl bg-black/30 border border-white/5">
-                  <div>
-                    <span className="block text-slate-500 text-[10px] uppercase">Verified Date</span>
-                    <span className="text-slate-200 font-semibold">{new Date(proof.verifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-500 text-[10px] uppercase">Expiration Date</span>
-                    <span className="text-slate-200 font-semibold">{new Date(share.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                  </div>
+            {proof && (
+              <dl className="grid grid-cols-1 gap-3 border-t border-white/[0.06] pt-5 sm:grid-cols-3">
+                <div>
+                  <dt className="text-caption text-fg-subtle">Verified</dt>
+                  <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
+                    {formatDate(proof.verifiedAt)}
+                  </dd>
                 </div>
-              )}
-
-              {/* Required Privacy Disclaimers */}
-              <div className="space-y-1.5 text-slate-400 text-[11px] leading-relaxed pt-3 border-t border-white/5">
-                <p className="text-slate-300">This information was selectively shared by the reputation owner.</p>
-                <p className="text-indigo-300 font-medium">No raw financial information is exposed.</p>
-              </div>
-            </div>
+                <div>
+                  <dt className="text-caption text-fg-subtle">Link expires</dt>
+                  <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
+                    {formatDate(share.expiresAt)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-caption text-fg-subtle">Evidence policy</dt>
+                  <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
+                    {proof.policyVersion ?? 'Not reported'}
+                  </dd>
+                </div>
+              </dl>
+            )}
           </div>
-        </main>
-      </div>
+
+          <p className="text-center text-caption leading-relaxed text-fg-subtle">
+            This information was selectively shared by the reputation owner. No raw financial
+            information is exposed through this link.
+          </p>
+        </div>
+      </PortalShell>
     );
   }
 
-  // 2. Check if token matches a ReputationProof (Full Public Reputation Proof)
+  // ==========================================================================
+  // 2. Full reputation proof
+  // ==========================================================================
   const proof = getReputationProof(token);
 
   if (proof) {
@@ -181,233 +296,219 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
     const effectiveStatus = isExpiredByTime ? 'expired' : proof.status;
 
     // A proof that is not active is never rendered with a score, a level, a
-    // factor breakdown, a QR code or a "Verified by FRL" claim.
-    // Legacy proofs were minted before the strict evidence policy existed and
-    // may carry a score produced from fabricated data.
+    // factor breakdown, a QR code or a "Verified by FRL" claim. This gate is
+    // the reason those things cannot appear below, and it is unchanged.
     if (effectiveStatus !== 'active') {
       const revoked = effectiveStatus === 'revoked';
+      const companyName = await resolveCompanyName(proof.ownerUserId);
+
       return (
-        <div className="min-h-screen bg-slate-950 text-slate-50 font-sans flex items-center justify-center px-6">
-          <div className="max-w-xl w-full p-8 rounded-3xl bg-white/[0.03] border border-white/10 text-center space-y-4">
-            <div className="flex items-center justify-center gap-2 text-indigo-400 text-xs font-semibold tracking-wider uppercase">
-              <ShieldCheck className="w-4 h-4" />
-              FRL Verification Portal
-            </div>
-
-            <h1 className="text-2xl font-extrabold text-slate-100">
-              {revoked ? 'Revoked proof' : 'Expired proof'}
-            </h1>
-
-            <p className="text-sm text-slate-400">
+        <PortalShell context={revoked ? 'Revoked proof' : 'Expired proof'}>
+          <div className="space-y-6">
+            <Verdict tone={revoked ? 'danger' : 'warning'} title={revoked ? 'Proof revoked' : 'Proof expired'}>
               {revoked
-                ? 'This reputation proof has been revoked, so it is no longer a valid verification.'
-                : 'This reputation proof has expired, so it is no longer a valid verification.'}
+                ? 'This reputation proof was revoked, so it is no longer a valid verification. FRL displays no score, level or factor result for it.'
+                : 'This reputation proof has passed its expiry date, so it is no longer a valid verification. FRL displays no score, level or factor result for it.'}
+            </Verdict>
+
+            <dl className="space-y-3 rounded-lg border border-white/10 bg-slate-900 p-5 shadow-[var(--shadow-surface)]">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <dt className="text-caption text-fg-muted">Company</dt>
+                <dd className="text-body-sm font-medium text-slate-100">{companyName ?? 'Not reported'}</dd>
+              </div>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <dt className="text-caption text-fg-muted">Verified</dt>
+                <dd className="text-body-sm font-medium text-slate-100">{formatDate(proof.verifiedAt)}</dd>
+              </div>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <dt className="text-caption text-fg-muted">Expired</dt>
+                <dd className="text-body-sm font-medium text-slate-100">{formatDate(proof.expiresAt)}</dd>
+              </div>
+            </dl>
+
+            <p className="text-center text-caption leading-relaxed text-fg-subtle">
+              FRL only displays a score, a level and factor results for a proof that is active and was
+              produced under the current reputation evidence policy.
             </p>
 
-            <p className="text-xs text-slate-500 leading-relaxed">
-              FRL only displays a score, a level and factor results for a proof that is active and
-              was produced under the current reputation evidence policy.
-            </p>
-
-            <Link
-              href="/search"
-              className="inline-block px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold"
-            >
-              Back to company search
-            </Link>
+            <div className="flex justify-center">
+              <Link href="/search">
+                <Button variant="secondary">Back to company search</Button>
+              </Link>
+            </div>
           </div>
-        </div>
+        </PortalShell>
       );
     }
 
+    const companyName = await resolveCompanyName(proof.ownerUserId);
+
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-20">
-        <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/50 backdrop-blur-md">
-          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <ShieldCheck className="w-6 h-6 text-indigo-400" />
-              <span className="font-semibold text-lg tracking-tight">FRL Verification Portal</span>
-            </Link>
-            <div className="flex items-center gap-2 text-sm text-slate-400">
-              <Lock className="w-4 h-4 text-emerald-400" />
-              Privacy-Preserving Proof
-            </div>
-          </div>
-        </nav>
+      <PortalShell context="Reputation proof">
+        <div className="space-y-6">
+          <Verdict tone="success" title="Reputation proof">
+            This proof is active. FRL displays the reputation it recorded at the verification date
+            below, and nothing else.
+          </Verdict>
 
-        <main className="pt-28 max-w-xl mx-auto px-6">
-          <div className="p-8 rounded-3xl bg-white/[0.03] border border-white/10 backdrop-blur-xl shadow-2xl space-y-6 text-center">
-            <div className="flex items-center justify-center gap-2 text-indigo-400 text-xs font-semibold tracking-wider uppercase">
-              <ShieldCheck className="w-4 h-4" />
-              FRL Verification Portal
-            </div>
-
-            <h1 className="text-2xl font-extrabold text-slate-100">
-              Financial Reputation Verification
-            </h1>
-
-            {/* Only an active proof reaches this point: the revoked and expired
-                states are handled by the early return above. */}
-            {effectiveStatus === 'active' && (
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold tracking-widest uppercase">
-                <CheckCircle2 className="w-4 h-4" />
-                VERIFIED ACTIVE
+          <div className="rounded-lg border border-white/10 bg-slate-900 p-5 shadow-[var(--shadow-surface)] sm:p-7">
+            <dl className="space-y-3 border-b border-white/[0.06] pb-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <dt className="flex items-center gap-2 text-caption text-fg-muted">
+                  <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  Company
+                </dt>
+                <dd className="text-body-sm font-medium text-slate-100">{companyName ?? 'Not reported'}</dd>
               </div>
-            )}
-
-            {/* Score & Level Header */}
-            <div className="py-4 border-y border-white/10 space-y-2">
-              <div className="text-6xl font-black text-white tracking-tight">
-                {proof.score}
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <dt className="flex items-center gap-2 text-caption text-fg-muted">
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  Proof reference
+                </dt>
+                <dd className="font-mono text-body-sm text-slate-200">
+                  {proof.id.replace(/^proof_/, '').slice(0, 12)}
+                </dd>
               </div>
-              <div className="text-lg font-bold text-indigo-400 tracking-wider uppercase">
+            </dl>
+
+            <div className="border-b border-white/[0.06] py-7 text-center">
+              <span className="text-label text-fg-subtle">Reputation score</span>
+              <div className="mt-2 flex items-baseline justify-center gap-3">
+                <span className="text-metric text-white">{proof.score}</span>
+                <span className="text-body-sm text-fg-muted">/ 850</span>
+              </div>
+              <p className="mt-2 text-h4 uppercase tracking-[0.08em] text-primary-hover">
                 {proof.level}
-              </div>
+              </p>
             </div>
 
-            {/* Factor Breakdown Grid */}
-            <div className="space-y-3 text-left pt-2">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-center mb-4">
-                Selected Reputation Factors
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                  <span className="text-slate-400 text-xs font-medium">Payment Reliability</span>
-                  <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.paymentReliability}</span>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                  <span className="text-slate-400 text-xs font-medium">Income Consistency</span>
-                  <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.incomeConsistency}</span>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                  <span className="text-slate-400 text-xs font-medium">Spending Stability</span>
-                  <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.spendingStability}</span>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                  <span className="text-slate-400 text-xs font-medium">Saving Behavior</span>
-                  <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.savingBehavior}</span>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                  <span className="text-slate-400 text-xs font-medium">Debt Behavior</span>
-                  <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.debtBehavior}</span>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
-                  <span className="text-slate-400 text-xs font-medium">Transaction History</span>
-                  <span className="text-slate-100 font-bold mt-1 text-base">{proof.factorSummary.transactionHistory}</span>
-                </div>
-              </div>
+            <div className="py-6">
+              <h2 className="mb-4 text-center text-label text-fg-subtle">
+                Reputation factors
+              </h2>
+              <FactorGrid factors={proof.factorSummary} />
             </div>
 
-            {/* Verification Metadata & QR Code */}
-            <div className="pt-6 border-t border-white/10 space-y-4 text-xs text-slate-400">
-              <div className="flex items-center justify-center gap-2 text-emerald-400 font-medium">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>✓ Verified by FRL</span>
+            <dl className="grid grid-cols-1 gap-3 border-t border-white/[0.06] pt-5 sm:grid-cols-3">
+              <div>
+                <dt className="flex items-center gap-1.5 text-caption text-fg-subtle">
+                  <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                  Verified
+                </dt>
+                <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
+                  {formatDate(proof.verifiedAt)}
+                </dd>
               </div>
-
-              <div className="grid grid-cols-2 gap-2 text-center py-2.5 px-4 rounded-xl bg-black/30 border border-white/5">
-                <div>
-                  <span className="block text-slate-500 text-[10px] uppercase">Verified Date</span>
-                  <span className="text-slate-200 font-semibold">{new Date(proof.verifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                </div>
-                <div>
-                  <span className="block text-slate-500 text-[10px] uppercase">Expiration Date</span>
-                  <span className="text-slate-200 font-semibold">{new Date(proof.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                </div>
+              <div>
+                <dt className="flex items-center gap-1.5 text-caption text-fg-subtle">
+                  <Clock className="h-3 w-3" aria-hidden="true" />
+                  Expires
+                </dt>
+                <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
+                  {formatDate(proof.expiresAt)}
+                </dd>
               </div>
-
-              {/* QR Code */}
-              <div className="pt-2 flex flex-col items-center justify-center gap-2">
-                <div className="p-2 rounded-xl bg-white inline-block shadow-md">
-                  <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`https://financial-reputation-layer.vercel.app/verify/${proof.id}`)}`}
-                    alt="Scan to verify reputation"
-                    className="w-28 h-28"
-                  />
-                </div>
-                <span className="text-[11px] text-slate-500">Scan to verify reputation</span>
+              <div>
+                <dt className="flex items-center gap-1.5 text-caption text-fg-subtle">
+                  <FileText className="h-3 w-3" aria-hidden="true" />
+                  Evidence policy
+                </dt>
+                <dd className="mt-0.5 text-body-sm font-medium text-slate-100">
+                  {proof.policyVersion ?? 'Not reported'}
+                </dd>
               </div>
-
-              {/* Privacy-First Notes */}
-              <div className="space-y-1.5 text-slate-400 text-[11px] leading-relaxed pt-3 border-t border-white/5">
-                <p>Verified reputation as of {new Date(proof.verifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}.</p>
-                <p className="italic text-slate-400">Reputation is a snapshot and may change after the verification date.</p>
-                <p className="text-indigo-300 font-medium">Your financial details are never exposed through this verification link.</p>
-              </div>
-            </div>
+            </dl>
           </div>
-        </main>
-      </div>
+
+          <div className="flex flex-col items-center gap-2">
+            <div className="inline-block rounded-lg bg-white p-2 shadow-[var(--shadow-elevated)]">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(
+                  `https://financial-reputation-layer.vercel.app/verify/${proof.id}`
+                )}`}
+                alt={`QR code linking to the verification page for proof ${proof.id}`}
+                width={140}
+                height={140}
+                className="h-28 w-28"
+                loading="lazy"
+              />
+            </div>
+            <p className="text-caption text-fg-subtle">Scan to open this verification</p>
+          </div>
+
+          <p className="text-center text-caption leading-relaxed text-fg-subtle">
+            Reputation is a snapshot taken on {formatDate(proof.verifiedAt)} and may change afterwards.
+            No raw financial information is exposed through this verification.
+          </p>
+        </div>
+      </PortalShell>
     );
   }
 
-  // 3. Check for Claims Verification Link
+  // ==========================================================================
+  // 3. Claims disclosure link
+  // ==========================================================================
   const link = db.links.find((l: VerificationLink) => l.token === token);
-  
+
   if (link) {
     db.auditLogs.push({
       id: `audit_${Date.now()}`,
       link_token: link.token,
       action: 'viewed',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
     saveDb(db);
   }
 
   const claims = link ? db.claims.filter((c: Claim) => link.claim_ids.includes(c.id)) : [];
   const company = db.companies.find((c: any) => c.id === (claims[0]?.company_id || 'c1'));
-  
-  const getTierBadge = (tier: EvidenceTier) => {
-    switch (tier) {
-      case 'official': return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">Official</span>;
-      case 'counterparty_attested': return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Counterparty</span>;
-      case 'public_review': return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">Public Review</span>;
-    }
+
+  const TIER_TONE: Record<EvidenceTier, 'info' | 'primary' | 'neutral'> = {
+    official: 'info',
+    counterparty_attested: 'primary',
+    public_review: 'neutral',
+  };
+  const TIER_LABEL: Record<EvidenceTier, string> = {
+    official: 'Official',
+    counterparty_attested: 'Counterparty',
+    public_review: 'Public review',
   };
 
   if (!link) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-50 font-sans flex items-center justify-center">
-        <div className="text-center p-8">
-          <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Invalid or Expired Link</h1>
-          <p className="text-slate-400">This verification link does not exist or has expired.</p>
+      <PortalShell context="Verification">
+        <div className="space-y-6 py-6 text-center">
+          <Verdict tone="danger" title="Invalid proof">
+            No FRL record matches this reference. FRL displays no reputation, score or claim for a
+            reference it cannot resolve.
+          </Verdict>
+          <div className="flex justify-center">
+            <Link href="/search">
+              <Button variant="secondary">Back to company search</Button>
+            </Link>
+          </div>
         </div>
-      </div>
+      </PortalShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30 pb-20">
-      <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/50 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-indigo-400" />
-            <span className="font-semibold text-lg tracking-tight">FRL Verification Portal</span>
-          </Link>
-          <div className="flex items-center gap-2 text-sm text-slate-400">
-            <Lock className="w-4 h-4" />
-            Secure Session
-          </div>
-        </div>
-      </nav>
+    <PortalShell context="Claims disclosure">
+      <div className="space-y-6">
+        <Verdict tone="success" title="Claims disclosure">
+          The following statements were submitted to FRL and authorised by{' '}
+          <span className="text-slate-100">{company?.name || 'the company'}</span> for your review.
+        </Verdict>
 
-      <main className="pt-32 max-w-3xl mx-auto px-6">
-        <div className="mb-12">
-          <h1 className="text-3xl font-bold mb-4">Verified Claims</h1>
-          <p className="text-slate-400">The following claims have been cryptographically verified and authorized for your review by <strong>{company?.name || 'Company'}</strong>.</p>
-        </div>
-
-        <div className="p-4 mb-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex gap-4 text-amber-200 text-sm">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-500 mt-0.5" />
-          <p>
-            You are viewing a restricted disclosure. Raw data is never exposed. The claims below are true statements backed by evidence tiers. This access has been logged in the audit trail.
+        <div className="flex items-start gap-3 rounded-md border border-white/10 bg-white/[0.02] p-4">
+          <AlertTriangle
+            className="mt-0.5 h-4 w-4 shrink-0 text-demo"
+            aria-hidden="true"
+          />
+          <p className="text-body-sm leading-relaxed text-fg-muted">
+            This is a restricted disclosure and the access has been recorded in the FRL audit trail.
+            Raw financial data is never exposed. Each statement below carries the evidence tier it
+            was submitted with, so you can judge how it was established.
           </p>
         </div>
 
@@ -415,45 +516,66 @@ export default async function VerifyPage({ params }: { params: Promise<{ token: 
           {claims.map((claim: Claim) => {
             const isRevoked = claim.status === 'revoked';
             const isExpired = claim.status === 'expired' || new Date(claim.expires_at) < new Date();
-            
+
             if (isRevoked || isExpired) {
               return (
-                <div key={claim.id} className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800">
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-medium text-slate-500 capitalize">{claim.axis_ref}</h3>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                      <XCircle className="w-3.5 h-3.5" />
-                      {isRevoked ? 'Claim Revoked' : 'Claim Expired'}
-                    </span>
+                <div
+                  key={claim.id}
+                  className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <h2 className="text-body-sm font-medium capitalize text-fg-subtle">
+                      {claim.axis_ref}
+                    </h2>
+                    <Badge tone={isRevoked ? 'danger' : 'warning'} size="sm" dot>
+                      {isRevoked ? 'Claim revoked' : 'Claim expired'}
+                    </Badge>
                   </div>
-                  <p className="text-slate-500 mt-2 text-sm italic">This claim is no longer active and cannot be relied upon.</p>
+                  <p className="mt-2 text-body-sm italic text-fg-subtle">
+                    This claim is no longer active and cannot be relied upon.
+                  </p>
                 </div>
               );
             }
 
             return (
-              <div key={claim.id} className="p-6 rounded-2xl bg-white/5 border border-white/10">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-medium text-indigo-300 capitalize">{claim.axis_ref}</h3>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Verified True
-                  </span>
+              <div
+                key={claim.id}
+                className="rounded-lg border border-white/10 bg-slate-900 p-5 shadow-[var(--shadow-surface)]"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <h2 className="text-body-sm font-medium capitalize text-primary-hover">
+                    {claim.axis_ref}
+                  </h2>
+                  <Badge tone="success" size="sm" dot>
+                    Active claim
+                  </Badge>
                 </div>
-                <p className="text-lg text-slate-100 mb-4">{claim.statement_text}</p>
-                
-                <div className="pt-4 border-t border-white/5 flex items-center gap-4 text-sm text-slate-400">
+                <p className="mt-2 text-h4 leading-snug text-slate-100">{claim.statement_text}</p>
+                <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/[0.06] pt-4">
                   <div className="flex items-center gap-2">
-                    Evidence Level: {getTierBadge(claim.evidence_tier)}
+                    <dt className="text-caption text-fg-subtle">Evidence tier</dt>
+                    <dd>
+                      <Badge tone={TIER_TONE[claim.evidence_tier]} size="sm">
+                        {TIER_LABEL[claim.evidence_tier]}
+                      </Badge>
+                    </dd>
                   </div>
-                  <div>&bull;</div>
-                  <div>Valid until: {new Date(claim.expires_at).toLocaleDateString()}</div>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <dt className="text-caption text-fg-subtle">Valid until</dt>
+                    <dd className="text-caption text-slate-200">{formatDate(claim.expires_at)}</dd>
+                  </div>
+                </dl>
               </div>
             );
           })}
         </div>
-      </main>
-    </div>
+
+        <p className="text-center text-caption leading-relaxed text-fg-subtle">
+          FRL records what a party submits and the tier it was submitted at. It does not audit the
+          underlying evidence and does not guarantee the outcome described in a claim.
+        </p>
+      </div>
+    </PortalShell>
   );
 }
