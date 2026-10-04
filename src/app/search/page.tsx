@@ -4,15 +4,38 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
+  AlertCircle,
+  ArrowRight,
+  Info,
   Search as SearchIcon,
   ShieldCheck,
-  ArrowRight,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
+  X,
 } from 'lucide-react';
 import { CompanySearchResult } from '@/lib/types';
 import { useLanguage, LanguageToggle } from '@/lib/i18n';
+import { Badge, Button, Container } from '@/components/ui';
+
+/**
+ * FRL search page — UI Phase 3.
+ *
+ * UI ONLY. Every behaviour below is the behaviour that shipped in Phase 0/1:
+ *
+ *   - URL query handling via useSearchParams().get('q')
+ *   - the <2 character short-circuit that clears results without fetching
+ *   - the GET /api/companies/search contract and its providerInfo envelope
+ *   - a provider failure surfacing as an error, never as an empty result set
+ *   - status filtering on profileStatus ('claimed' / 'unclaimed')
+ *   - the split between registry results and development demo records
+ *
+ * Integrity rules that must survive any restyling:
+ *
+ *   1. A record whose sourceType is 'internal_demo' is demo data. It never
+ *      gets a score, a verified badge, or a claimed badge.
+ *   2. A registry identity record carries no reputation score, so the card
+ *      reads Insufficient Data rather than a number.
+ *   3. A missing field is reported as "Not reported" — never filled with a
+ *      plausible-looking substitute.
+ */
 
 type ProviderStatus =
   | 'ok'
@@ -20,6 +43,192 @@ type ProviderStatus =
   | 'provider_unavailable'
   | 'provider_error'
   | 'malformed_response';
+
+const FILTERS = [
+  ['all', 'All statuses'],
+  ['claimed', 'Claimed'],
+  ['unclaimed', 'Unclaimed'],
+] as const;
+
+const SOURCE_TYPE_LABEL: Record<string, string> = {
+  public_registry: 'Public registry',
+  filing: 'Filing',
+  company_provided: 'Company provided',
+  counterparty: 'Counterparty',
+  internal_demo: 'Internal demo',
+};
+
+/** Replaces an absent value with an explicit statement of absence. */
+function orNotReported(value?: string | null): string {
+  return value && value.trim() ? value : 'Not reported';
+}
+
+/** Skeleton that mirrors the real card's geometry so nothing jumps on load. */
+function ResultCardSkeleton() {
+  return (
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-5 sm:p-6">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-1 gap-4">
+          <div className="h-12 w-12 shrink-0 animate-pulse rounded-md bg-white/[0.06]" />
+          <div className="min-w-0 flex-1 space-y-2.5">
+            <div className="h-4 w-2/5 animate-pulse rounded bg-white/[0.07]" />
+            <div className="h-3 w-3/5 animate-pulse rounded bg-white/[0.05]" />
+            <div className="h-3 w-1/4 animate-pulse rounded bg-white/[0.04]" />
+          </div>
+        </div>
+        <div className="shrink-0 space-y-2.5 sm:w-40">
+          <div className="h-3 w-24 animate-pulse rounded bg-white/[0.05]" />
+          <div className="h-9 w-full animate-pulse rounded-md bg-white/[0.05]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResultCard({ item, isDemo }: { item: CompanySearchResult; isDemo: boolean }) {
+  const hasScore = typeof item.reputationScore === 'number';
+  const isClaimed = item.profileStatus === 'claimed';
+  // The jurisdiction code is what the registry actually reports. A country
+  // name is only shown when the source explicitly provided one.
+  const place = item.country || item.jurisdictionCode;
+  const retrieved = item.source?.retrievedAt;
+
+  return (
+    <article className="group rounded-lg border border-white/[0.07] bg-white/[0.015] p-5 transition-[border-color,background-color] duration-[var(--frl-dur-normal)] hover:border-white/[0.16] sm:p-6">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        {/* ---- Identity + provenance ---- */}
+        <div className="flex min-w-0 flex-1 gap-4">
+          <span
+            aria-hidden="true"
+            className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.04] text-sm font-semibold text-fg-muted"
+          >
+            {item.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={item.logoUrl} alt="" className="h-9 w-9 object-contain" />
+            ) : (
+              item.name.substring(0, 2).toUpperCase()
+            )}
+          </span>
+
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-h4 truncate text-white">{item.name}</h3>
+              {/* Demo is checked FIRST: a demo record never reaches the claimed
+                  or verified branches below, whatever its other fields say. */}
+              {isDemo ? (
+                <Badge tone="demo" size="sm" dot>
+                  Demo record
+                </Badge>
+              ) : isClaimed ? (
+                <Badge tone="primary" size="sm" dot>
+                  Claimed profile
+                </Badge>
+              ) : (
+                <Badge tone="neutral" size="sm">
+                  Unclaimed
+                </Badge>
+              )}
+            </div>
+
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption text-fg-subtle">
+              <span>{orNotReported(item.businessType || item.industry)}</span>
+              {item.registrationNumber ? (
+                <>
+                  <span aria-hidden="true" className="text-white/15">
+                    /
+                  </span>
+                  <span className="tabular">Reg: {item.registrationNumber}</span>
+                </>
+              ) : null}
+              {place ? (
+                <>
+                  <span aria-hidden="true" className="text-white/15">
+                    /
+                  </span>
+                  <span>{place}</span>
+                </>
+              ) : null}
+            </p>
+
+            {/* Provenance. Every value is the real field; absence is stated. */}
+            <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[0.6875rem]">
+              <div className="flex gap-1.5">
+                <dt className="text-fg-subtle">Source</dt>
+                <dd className="truncate text-fg-muted">{orNotReported(item.source?.provider)}</dd>
+              </div>
+              <div className="flex gap-1.5">
+                <dt className="text-fg-subtle">Type</dt>
+                <dd className="text-fg-muted">
+                  {SOURCE_TYPE_LABEL[item.source?.sourceType] ||
+                    orNotReported(item.source?.sourceType)}
+                </dd>
+              </div>
+              <div className="flex gap-1.5">
+                <dt className="text-fg-subtle">Verification</dt>
+                <dd
+                  className={
+                    !isDemo && item.source?.verificationStatus === 'verified'
+                      ? 'text-success'
+                      : 'text-fg-muted'
+                  }
+                >
+                  {isDemo
+                    ? 'Not verified by FRL'
+                    : item.source?.verificationStatus === 'verified'
+                      ? 'Verified by FRL'
+                      : item.source?.verificationStatus === 'expired'
+                        ? 'Verification expired'
+                        : 'Not verified by FRL'}
+                </dd>
+              </div>
+              <div className="flex gap-1.5">
+                <dt className="text-fg-subtle">Retrieved</dt>
+                <dd className="text-fg-muted">
+                  {retrieved ? new Date(retrieved).toLocaleDateString() : 'Not reported'}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+
+        {/* ---- Reputation state + action ----
+            Stacks on small screens on purpose: the demo label is the widest
+            element on the card and must never be truncated or pushed off the
+            edge to save a row. */}
+        <div className="flex shrink-0 flex-col items-start gap-3 border-t border-white/[0.06] pt-4 sm:w-44 sm:items-end sm:border-t-0 sm:pt-0">
+          <div className="sm:text-right">
+            <p className="text-label text-fg-subtle">Reputation</p>
+            {/* STRICT PRODUCT RULE: a registry identity record never carries a
+                score, and a demo record never shows a number that could read
+                as a real one. The label always outranks the numeral. */}
+            {isDemo ? (
+              <Badge tone="demo" size="sm" className="mt-2">
+                Demo data — not a real score
+              </Badge>
+            ) : hasScore ? (
+              <p className="mt-1 text-2xl font-bold tabular text-white">
+                {item.reputationScore}
+                <span className="ml-1 text-xs font-medium text-fg-subtle">/ 1000</span>
+              </p>
+            ) : (
+              <Badge tone="insufficient" size="sm" className="mt-2">
+                Insufficient data
+              </Badge>
+            )}
+          </div>
+
+          <Link
+            href={`/company/${item.id}`}
+            className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-md border border-primary/35 bg-primary-soft px-4 text-xs font-semibold text-indigo-200 transition-[background-color,border-color,transform] duration-[var(--frl-dur-fast)] ease-[var(--frl-ease-standard)] hover:border-primary/60 hover:bg-indigo-500/15 active:translate-y-px sm:w-auto"
+          >
+            View profile
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 function SearchContent() {
   const searchParams = useSearchParams();
@@ -105,268 +314,272 @@ function SearchContent() {
   const filteredResults = results.filter(matchesFilter);
   const filteredDemoResults = demoResults.filter(matchesFilter);
 
-  const renderCard = (item: CompanySearchResult, isDemo: boolean) => {
-    const hasScore = typeof item.reputationScore === 'number';
-    const isClaimed = item.profileStatus === 'claimed';
-    // The jurisdiction code is what the registry actually reports. A country
-    // name is only shown when the source explicitly provided one.
-    const place = item.country || item.jurisdictionCode;
-
-    return (
-      <div
-        key={item.id}
-        className="p-6 rounded-2xl bg-slate-900/80 border border-white/10 hover:border-indigo-500/40 transition-all shadow-lg hover:shadow-indigo-500/5 group"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 bg-slate-800/80 rounded-2xl border border-white/10 flex items-center justify-center text-xl font-bold text-slate-300 shrink-0 group-hover:scale-105 transition-transform">
-              {item.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.logoUrl} alt={item.name} className="w-10 h-10 object-contain" />
-              ) : (
-                item.name.substring(0, 2).toUpperCase()
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <h3 className="text-lg font-bold text-slate-100 group-hover:text-indigo-300 transition-colors">
-                  {item.name}
-                </h3>
-                {isDemo ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-400/40">
-                    <AlertCircle className="w-3 h-3 text-amber-400" />
-                    Demo Record
-                  </span>
-                ) : isClaimed ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    <CheckCircle2 className="w-3 h-3 text-indigo-400" />
-                    Claimed Profile
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
-                    Unclaimed
-                  </span>
-                )}
-              </div>
-
-              <p className="text-xs text-slate-400 mb-1.5">
-                {item.businessType || item.industry || 'Entity type not reported'}
-                {item.registrationNumber ? <> &bull; Reg: {item.registrationNumber}</> : null}
-                {place ? <> &bull; {place}</> : null}
-              </p>
-
-              <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500">
-                <span>Source:</span>
-                <span className="text-indigo-400/90">{item.source?.provider}</span>
-                <span className="text-slate-600">|</span>
-                <span className="text-slate-400">
-                  {isDemo
-                    ? 'Development demo record — not registry data'
-                    : `Public registry record · Not verified by FRL`}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-3 sm:pt-0 border-white/10 shrink-0 gap-3">
-            <div className="text-left sm:text-right">
-              <span className="text-[11px] text-slate-400 block font-semibold">
-                Business Reputation
-              </span>
-              {/* STRICT PRODUCT RULE: a registry identity record never carries a score,
-                  and demo records never show a number that could read as a real one. */}
-              {isDemo ? (
-                <span className="text-xs font-bold text-amber-400/90 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20 inline-block mt-0.5">
-                  Demo data — not a real score
-                </span>
-              ) : hasScore ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-2xl font-extrabold text-amber-400">
-                    {item.reputationScore}
-                  </span>
-                  <span className="text-xs font-semibold text-slate-400">/ 1000</span>
-                </div>
-              ) : (
-                <span className="text-xs font-bold text-amber-400/90 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20 inline-block mt-0.5">
-                  — / 1000 Insufficient Data
-                </span>
-              )}
-            </div>
-
-            <Link
-              href={`/company/${item.id}`}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-md shadow-indigo-600/30 flex items-center gap-1.5"
-            >
-              View Company
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const notConfigured = providerInfo.status === 'not_configured';
   const showEmptyState =
     !loading && !error && filteredResults.length === 0 && filteredDemoResults.length === 0;
+  const hasQuery = Boolean(activeQuery.trim());
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30">
-      <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-slate-950/70 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-indigo-400" />
-            <span className="font-semibold text-lg tracking-tight">FRL</span>
+    <div className="min-h-screen bg-canvas text-fg font-sans antialiased selection:bg-primary-soft">
+      {/* ============================== NAV ============================== */}
+      <nav className="fixed top-0 z-50 w-full frl-glass-nav">
+        <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-y-2 px-4 py-2 sm:h-16 sm:px-6 sm:py-0 lg:px-8">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="FRL home">
+            <span className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-white/[0.04]">
+              <ShieldCheck className="h-4 w-4 text-primary-hover" aria-hidden="true" />
+            </span>
+            <span className="flex flex-col leading-none">
+              <span className="text-[0.9375rem] font-semibold tracking-tight text-white">FRL</span>
+              <span className="mt-0.5 hidden text-[0.5625rem] uppercase tracking-[0.14em] text-fg-subtle sm:block">
+                Reputation Layer
+              </span>
+            </span>
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 sm:gap-x-7">
             <LanguageToggle />
-            <Link href="/principles" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+            <Link
+              href="/search"
+              className="text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white"
+            >
+              {t('nav.findCompany', 'Search Companies')}
+            </Link>
+            <Link
+              href="/principles"
+              className="hidden text-sm font-medium text-fg-secondary transition-colors duration-[var(--frl-dur-fast)] hover:text-white sm:inline"
+            >
               {t('nav.principles', 'Principles')}
             </Link>
           </div>
         </div>
       </nav>
 
-      <main className="pt-28 pb-20 max-w-4xl mx-auto px-6">
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Find a Company</h1>
-          <p className="text-sm text-slate-400">
-            Search real corporate identities via the OpenCorporates public registry.
-            A registry record is not an FRL verification.
-          </p>
-        </div>
-
-        <form onSubmit={handleSearchSubmit} className="relative mb-6">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <SearchIcon className="h-5 w-5 text-indigo-400" />
-          </div>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search company name, registration ID, or Toyota, Microsoft..."
-            className="block w-full pl-11 pr-28 py-4 bg-slate-900 border border-white/15 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-500 transition-all text-sm shadow-xl"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="absolute right-2 top-2 bottom-2 px-5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5 disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
-          </button>
-        </form>
-
-        {notConfigured && (
-          <div className="mb-6 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <span>
-              {providerInfo.message ||
-                'The company registry provider is not configured, so no real company records can be shown.'}
-            </span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 mb-8 flex-wrap">
-          <span className="text-xs font-semibold text-slate-400 mr-1">Filter:</span>
-          {(
-            [
-              ['all', 'All Statuses'],
-              ['claimed', 'Claimed'],
-              ['unclaimed', 'Unclaimed'],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setStatusFilter(value)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                statusFilter === value
-                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30'
-                  : 'text-slate-400 hover:text-slate-200 border-white/10 hover:bg-white/5'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              {loading
-                ? 'Searching...'
-                : `Registry Results (${filteredResults.length})`}
-            </h2>
+      <main className="pt-28 sm:pt-32">
+        <Container width="wide">
+          {/* ============================ HEADER ============================ */}
+          <div className="max-w-2xl">
+            <p className="text-label text-primary-hover">Business intelligence</p>
+            <h1 className="mt-4 text-h1 text-white">Find a business</h1>
+            <p className="mt-5 text-body leading-relaxed text-fg-muted">
+              Search business records and inspect the evidence available to FRL.
+              A registry record identifies a company; it is not itself a verification,
+              and not every record carries financial evidence.
+            </p>
           </div>
 
-          {loading ? (
-            <div className="p-12 text-center rounded-2xl bg-white/5 border border-white/10">
-              <Loader2 className="w-8 h-8 text-indigo-400 animate-spin mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-slate-200 mb-1">
-                Searching companies...
-              </h3>
-              <p className="text-xs text-slate-400">
-                Querying the public company registry.
-              </p>
+          {/* ======================= SEARCH COMMAND ======================= */}
+          <form onSubmit={handleSearchSubmit} className="mt-10">
+            <div className="frl-glass rounded-lg p-2 sm:flex sm:items-center sm:gap-2">
+              <div className="relative flex-1">
+                <label htmlFor="frl-search-input" className="sr-only">
+                  Search company by name or registration number
+                </label>
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4"
+                >
+                  <SearchIcon className="h-[1.125rem] w-[1.125rem] text-fg-subtle" />
+                </div>
+                <input
+                  id="frl-search-input"
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Company name, registration ID, or jurisdiction…"
+                  className="block h-12 w-full rounded-md border border-transparent bg-transparent pl-11 pr-10 text-sm text-slate-100 placeholder:text-fg-subtle focus:outline-none sm:h-11"
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    aria-label="Clear search"
+                    className="absolute inset-y-0 right-2 grid w-8 place-items-center rounded-sm text-fg-subtle transition-colors duration-[var(--frl-dur-fast)] hover:text-white"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="mt-2 flex items-center gap-2 sm:mt-0">
+                <Button
+                  type="submit"
+                  size="md"
+                  loading={loading}
+                  className="w-full sm:w-auto"
+                  icon={!loading ? <SearchIcon className="h-4 w-4" aria-hidden="true" /> : undefined}
+                >
+                  Search
+                </Button>
+                <kbd
+                  aria-hidden="true"
+                  className="hidden shrink-0 select-none rounded-sm border border-white/10 px-1.5 py-0.5 font-mono text-[0.625rem] text-fg-subtle lg:block"
+                >
+                  Enter
+                </kbd>
+              </div>
             </div>
-          ) : error ? (
-            <div className="p-12 text-center rounded-2xl bg-rose-500/10 border border-rose-500/20">
-              <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
-              <h3 className="text-base font-semibold text-rose-300 mb-1">
-                Unable to complete the search
-              </h3>
-              <p className="text-xs text-slate-400 mb-1">{error}</p>
-              {providerInfo.code && (
-                <p className="text-[11px] text-slate-500 font-mono mb-4">
-                  Reference: {providerInfo.code}
+            <p className="mt-2.5 px-1 text-caption text-fg-subtle">
+              Two characters or more. FRL queries the public corporate registry.
+            </p>
+          </form>
+
+          {/* ======================= PROVIDER NOTICE ======================= */}
+          {notConfigured && (
+            <div className="mt-8 flex items-start gap-3 rounded-md border border-warning-line bg-warning-soft p-4">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+              <div>
+                <p className="text-body-sm font-semibold text-amber-200">
+                  Registry provider not configured
                 </p>
-              )}
-              <button
-                onClick={() => performSearch(query)}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-500 transition-colors"
-              >
-                Please Try Again
-              </button>
+                <p className="mt-1 text-body-sm leading-relaxed text-amber-300/85">
+                  {providerInfo.message ||
+                    'The company registry provider is not configured, so no real company records can be shown.'}
+                </p>
+              </div>
             </div>
-          ) : (
-            <>
-              {filteredResults.map((item) => renderCard(item, false))}
-
-              {filteredDemoResults.length > 0 && (
-                <div className="pt-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                      Development Demo Records ({filteredDemoResults.length})
-                    </h3>
-                  </div>
-                  <p className="text-[11px] text-amber-300/80 mb-4 flex items-start gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
-                    <span>
-                      Sample data for local development. These are NOT real registry
-                      records and are never presented as verified companies.
-                    </span>
-                  </p>
-                  <div className="space-y-4">
-                    {filteredDemoResults.map((item) => renderCard(item, true))}
-                  </div>
-                </div>
-              )}
-
-              {showEmptyState && (
-                <div className="p-12 text-center rounded-2xl bg-white/5 border border-white/10">
-                  <AlertCircle className="w-8 h-8 text-amber-400 mx-auto mb-3" />
-                  <h3 className="text-base font-semibold mb-1">No Companies Found</h3>
-                  <p className="text-xs text-slate-400 mb-4">
-                    The registry returned no company matching &quot;
-                    {activeQuery || query}&quot;. Try a different company name or
-                    registration ID.
-                  </p>
-                </div>
-              )}
-            </>
           )}
-        </div>
+
+          {/* ===================== QUERY CONTEXT + FILTERS ===================== */}
+          {hasQuery && !loading ? (
+            <div className="mt-10 flex flex-col gap-4 border-b border-white/[0.06] pb-5 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-label text-fg-subtle">Search results</p>
+                <p className="mt-1.5 truncate text-h3 text-white">
+                  Results for <span className="text-primary-hover">“{activeQuery}”</span>
+                </p>
+              </div>
+
+              <div
+                role="group"
+                aria-label="Filter results by profile status"
+                className="flex shrink-0 gap-1 self-start rounded-md border border-white/[0.08] bg-white/[0.02] p-1 sm:self-auto"
+              >
+                {FILTERS.map(([value, label]) => {
+                  const active = statusFilter === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setStatusFilter(value)}
+                      className={[
+                        'h-9 rounded-sm px-3.5 text-xs font-semibold transition-[background-color,color,border-color] duration-[var(--frl-dur-fast)]',
+                        active
+                          ? 'bg-white/[0.08] text-white shadow-[var(--shadow-surface)]'
+                          : 'text-fg-subtle hover:bg-white/[0.04] hover:text-fg-secondary',
+                      ].join(' ')}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {/* ============================ RESULTS ============================ */}
+          <section className="mt-8 pb-24" aria-label="Search results">
+            {loading ? (
+              <div className="space-y-3">
+                <ResultCardSkeleton />
+                <ResultCardSkeleton />
+                <ResultCardSkeleton />
+              </div>
+            ) : error ? (
+              /* Provider / transport failure. Deliberately distinct from both
+                 "no results" and "company not found". */
+              <div className="rounded-lg border border-danger-line bg-danger-soft p-8 text-center">
+                <AlertCircle className="mx-auto h-7 w-7 text-danger" aria-hidden="true" />
+                <h2 className="mt-4 text-h4 text-rose-200">Unable to complete the search</h2>
+                <p className="mx-auto mt-2 max-w-md text-body-sm leading-relaxed text-fg-secondary">
+                  {error}
+                </p>
+                {providerInfo.code && (
+                  <p className="mt-2 font-mono text-caption text-fg-subtle">
+                    Reference: {providerInfo.code}
+                  </p>
+                )}
+                <div className="mt-6 flex justify-center">
+                  <Button variant="outline" size="md" onClick={() => performSearch(query)}>
+                    Try again
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {filteredResults.length > 0 && (
+                  <div>
+                    <div className="mb-4 flex items-center justify-between gap-4">
+                      <h2 className="text-label text-fg-subtle">Registry results</h2>
+                      <span className="text-caption tabular text-fg-subtle">
+                        {filteredResults.length}
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {filteredResults.map((item) => (
+                        <ResultCard key={item.id} item={item} isDemo={false} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {filteredDemoResults.length > 0 && (
+                  <div className="mt-12">
+                    <div className="mb-3 flex items-center justify-between gap-4">
+                      <h2 className="text-label text-fg-subtle">Development demo records</h2>
+                      <span className="text-caption tabular text-fg-subtle">
+                        {filteredDemoResults.length}
+                      </span>
+                    </div>
+                    <p className="mb-4 flex items-start gap-2 text-body-sm leading-relaxed text-amber-300/85">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span>
+                        Sample data for local development. These are NOT real registry
+                        records and are never presented as verified companies.
+                      </span>
+                    </p>
+                    <div className="space-y-3">
+                      {filteredDemoResults.map((item) => (
+                        <ResultCard key={item.id} item={item} isDemo />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {showEmptyState && (
+                  /* Zero matches. Calm and intentional, with a real next step. */
+                  <div className="rounded-lg border border-white/[0.07] bg-white/[0.015] px-6 py-16 text-center">
+                    <span className="mx-auto grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] bg-white/[0.04]">
+                      <SearchIcon className="h-5 w-5 text-fg-subtle" aria-hidden="true" />
+                    </span>
+                    <h2 className="mt-5 text-h4 text-white">No matching businesses</h2>
+                    <p className="mx-auto mt-2 max-w-sm text-body-sm leading-relaxed text-fg-subtle">
+                      {hasQuery
+                        ? `FRL could not find a matching record for “${activeQuery}”.`
+                        : 'Enter a company name or registration identifier to search the registry.'}
+                    </p>
+                    <p className="mx-auto mt-4 max-w-sm text-body-sm text-fg-muted">
+                      Try another business name or identifier.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        </Container>
       </main>
+
+      {/* ============================= FOOTER ============================= */}
+      <footer className="border-t border-white/[0.06]">
+        <Container width="wide">
+          <p className="flex items-start gap-2.5 py-7 text-caption leading-relaxed text-fg-subtle">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              Registry retrieval is not FRL verification. Records listed as demo data are
+              development samples and are never presented as verified companies.
+            </span>
+          </p>
+        </Container>
+      </footer>
     </div>
   );
 }
@@ -375,7 +588,11 @@ export default function SearchPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-slate-400">Loading search directory...</div>
+        <div className="min-h-screen bg-canvas">
+          <Container width="wide">
+            <p className="pt-40 text-body-sm text-fg-subtle">Loading search directory…</p>
+          </Container>
+        </div>
       }
     >
       <SearchContent />
