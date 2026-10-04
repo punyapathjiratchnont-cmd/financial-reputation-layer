@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import {
+  LayoutDashboard,
+  type LucideIcon,
   TrendingUp,
   Activity,
   Sliders,
@@ -44,27 +47,234 @@ import {
   ReputationResult,
   ReputationLevel,
   UserFinancialData,
+  hasPaymentEvidence,
+  hasIncomeEvidence,
+  hasSpendingEvidence,
+  hasSavingsEvidence,
+  hasDebtEvidence,
+  hasTransactionEvidence,
 } from '@/lib/reputationEngine';
 import { MOCK_FINANCIAL_PROFILES } from '@/lib/mockFinancialData';
 import { AIAnalysisResult } from '@/lib/aiAnalysisService';
 import {
   Claim,
+  Company,
   ScoreHistoryItem,
   ReputationProof,
   ReputationShare,
   DisclosureLevel,
 } from '@/lib/types';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui';
 import { ScoreHistoryChart } from './ScoreHistoryChart';
 import { FinancialInputModal } from './FinancialInputModal';
 import { useLanguage } from '@/lib/i18n';
 
 interface ReputationEngineViewProps {
   userId?: string;
+  /**
+   * The company this workspace is attached to.
+   *
+   * Optional and purely contextual: the workspace only reads its name and its
+   * real verification status so the header can say who owns what. It never
+   * reads a score from here — the reputation shown in this workspace comes
+   * only from the engine's outcome.
+   */
+  company?: Company;
+  /** Returns to the public company profile. Owned by the parent view. */
+  onViewPublicProfile?: () => void;
 }
 
 export type MainNavTab = 'dashboard' | 'my_reputation' | 'verify' | 'proofs' | 'reputation_data';
 
-export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProps) {
+// ---------------------------------------------------------------------------
+// UI Phase 5 — Owner Workspace evidence vocabulary.
+//
+// The workspace distinguishes three states and never collapses them:
+//
+//   Available     the owner submitted this group and the engine's evidence
+//                 gate for it passes
+//   Missing       the group was never submitted
+//   Not reported  a specific field is absent from an otherwise present group
+//
+// `—` means "we do not know". It never means zero.
+// ---------------------------------------------------------------------------
+
+const NOT_REPORTED = '—';
+
+/**
+ * Formats a value the owner actually submitted.
+ *
+ * Zero is reported as zero on purpose: "0 late payments" is genuine evidence
+ * and hiding it would misreport the record. Only a field that is absent — not
+ * a number at all — becomes an em dash. That is why this tests `typeof` and
+ * never truthiness.
+ */
+function reported(value: number | null | undefined, format?: (n: number) => string): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return NOT_REPORTED;
+  return format ? format(value) : value.toLocaleString();
+}
+
+function baht(value: number | null | undefined): string {
+  return reported(value, (n) => `฿${n.toLocaleString()}`);
+}
+
+/**
+ * A ratio is reported only when both sides exist and the denominator is
+ * positive. Otherwise it is "not reported" — never "0.0%", because 0% would
+ * assert that the owner reported no income, which is a different claim.
+ */
+function ratio(
+  numerator: number | null | undefined,
+  denominator: number | null | undefined
+): string {
+  if (typeof denominator !== 'number' || !Number.isFinite(denominator) || denominator <= 0) {
+    return NOT_REPORTED;
+  }
+  if (typeof numerator !== 'number' || !Number.isFinite(numerator)) return NOT_REPORTED;
+  return `${((numerator / denominator) * 100).toFixed(1)}%`;
+}
+
+interface EvidenceRow {
+  label: string;
+  value: string;
+}
+
+interface EvidenceGroup {
+  id: string;
+  label: string;
+  purpose: string;
+  icon: LucideIcon;
+  /**
+   * The engine's own evidence gate, imported from reputationEngine.
+   *
+   * Using the engine's predicate rather than a UI heuristic is the point: the
+   * workspace must not have a second, looser idea of what counts as evidence.
+   */
+  has: (d: UserFinancialData) => boolean;
+  rows: (d: UserFinancialData) => EvidenceRow[];
+}
+
+const EVIDENCE_GROUPS: EvidenceGroup[] = [
+  {
+    id: 'income',
+    label: 'Income & Stability',
+    purpose: 'Declared revenue and how long that revenue has held.',
+    icon: DollarSign,
+    has: (d) => hasIncomeEvidence(d.income),
+    rows: (d) => [
+      { label: 'Monthly income', value: baht(d.income.monthly) },
+      { label: 'Income continuity', value: reported(d.income.stabilityMonths, (n) => `${n} months`) },
+      { label: 'Revenue sources', value: reported(d.income.sourcesCount, (n) => `${n} entered`) },
+    ],
+  },
+  {
+    id: 'spending',
+    label: 'Expenses & Spending',
+    purpose: 'Declared monthly outgoings and the discretionary share of income.',
+    icon: PieChart,
+    has: (d) => hasSpendingEvidence(d.income, d.expenses),
+    rows: (d) => [
+      { label: 'Monthly expenses', value: baht(d.expenses.monthlyAvg) },
+      { label: 'Expense ratio', value: ratio(d.expenses.monthlyAvg, d.income.monthly) },
+      {
+        label: 'Discretionary share',
+        value: reported(d.expenses.discretionaryRatio, (n) => `${(n * 100).toFixed(0)}%`),
+      },
+    ],
+  },
+  {
+    id: 'payments',
+    label: 'Payments & Obligations',
+    purpose: 'Obligation history: paid on time, paid late, or missed.',
+    icon: CheckCircle2,
+    has: (d) => hasPaymentEvidence(d.payments),
+    rows: (d) => [
+      { label: 'Obligations recorded', value: reported(d.payments.totalDue) },
+      { label: 'Paid on time', value: reported(d.payments.onTimeCount) },
+      { label: 'Paid late', value: reported(d.payments.lateCount) },
+      { label: 'Missed', value: reported(d.payments.missedCount) },
+    ],
+  },
+  {
+    id: 'savings',
+    label: 'Savings & Reserves',
+    purpose: 'The liquid buffer and the monthly contribution building it.',
+    icon: Shield,
+    has: (d) => hasSavingsEvidence(d.savings),
+    rows: (d) => [
+      { label: 'Liquid savings balance', value: baht(d.savings.currentBalance) },
+      { label: 'Monthly contribution', value: baht(d.savings.monthlyContribution) },
+      {
+        label: 'Emergency fund cover',
+        value: reported(d.savings.emergencyFundMonths, (n) => `${n} months`),
+      },
+    ],
+  },
+  {
+    id: 'debts',
+    label: 'Debt Liabilities',
+    purpose: 'Outstanding obligations, available credit and monthly debt service.',
+    icon: AlertTriangle,
+    has: (d) => hasDebtEvidence(d.debts),
+    rows: (d) => [
+      { label: 'Total debt', value: baht(d.debts.totalDebt) },
+      { label: 'Credit limit', value: baht(d.debts.creditLimit) },
+      { label: 'Monthly debt service', value: baht(d.debts.monthlyDebtService) },
+      { label: 'Debt service ratio', value: ratio(d.debts.monthlyDebtService, d.income.monthly) },
+    ],
+  },
+  {
+    id: 'transactions',
+    label: 'Transaction History',
+    purpose: 'Observed activity: volume, account age and returned payments.',
+    icon: Clock,
+    has: (d) => hasTransactionEvidence(d.transactions),
+    rows: (d) => [
+      { label: 'Transactions, last 6 months', value: reported(d.transactions.count6Months) },
+      {
+        label: 'Account duration',
+        value: reported(d.transactions.oldestAccountYears, (n) => `${n} years`),
+      },
+      { label: 'Returned payments', value: reported(d.transactions.bouncedCount) },
+    ],
+  },
+];
+
+/**
+ * Owner workspace readiness.
+ *
+ * There is no `percent` field, and that is deliberate. The application does
+ * not compute a readiness value, so none is shown. A percentage derived from a
+ * field count would be a fabricated score sitting beside a real one.
+ */
+type ReadinessState =
+  | { kind: 'loading' }
+  | { kind: 'demo' }
+  | { kind: 'none'; reason: string }
+  | { kind: 'insufficient'; reason: string; missing: string[] }
+  | { kind: 'scored'; result: ReputationResult };
+
+const WORKSPACE_TABS: Array<{ id: MainNavTab; label: string; icon: LucideIcon }> = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'my_reputation', label: 'My Reputation', icon: Award },
+  { id: 'verify', label: 'Verify Company', icon: ShieldCheck },
+  { id: 'proofs', label: 'Proofs', icon: Lock },
+  { id: 'reputation_data', label: 'Reputation Data', icon: SlidersHorizontal },
+];
+
+export function ReputationEngineView({
+  userId = 'c1',
+  company,
+  onViewPublicProfile,
+}: ReputationEngineViewProps) {
   const { language } = useLanguage();
 
   // Navigation Tab State
@@ -504,181 +714,542 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
     }
   };
 
-  // Financial Audited Ratios (Section 9)
-  const monthlyInc = activeFinancialData?.income?.monthly || 0;
-  const monthlyExp = activeFinancialData?.expenses?.monthlyAvg || 0;
-  const monthlySav = activeFinancialData?.savings?.monthlyContribution || 0;
-  const totalSav = activeFinancialData?.savings?.currentBalance || 0;
-  const totalDebt = activeFinancialData?.debts?.totalDebt || 0;
-  const monthlyDebtService = activeFinancialData?.debts?.monthlyDebtService || 0;
+  // -------------------------------------------------------------------------
+  // UI Phase 5 — Owner Workspace readiness.
+  //
+  // Everything here is read from state the application already holds: the
+  // engine's own outcome, the engine's own evidence gates, and the record that
+  // was actually submitted. Nothing is estimated and nothing is counted into a
+  // percentage.
+  // -------------------------------------------------------------------------
 
-  const savingsRate = monthlyInc > 0 ? ((monthlySav / monthlyInc) * 100).toFixed(1) : '0.0';
-  const expenseRatio = monthlyInc > 0 ? ((monthlyExp / monthlyInc) * 100).toFixed(1) : '0.0';
-  const dtiRatio = monthlyInc > 0 ? ((monthlyDebtService / monthlyInc) * 100).toFixed(1) : '0.0';
+  // The engine's own wording for "no record has ever been submitted".
+  // Computed rather than retyped so the workspace cannot drift away from the
+  // reason the engine would give for the same absence.
+  const noEvidenceReason = useMemo(() => {
+    const outcome = calculateReputation(null);
+    return outcome.status === 'insufficient' ? outcome.reason : null;
+  }, []);
+
+  const readiness: ReadinessState = useMemo(() => {
+    if (loading) return { kind: 'loading' };
+    if (isDemo) return { kind: 'demo' };
+    if (!realHasData) {
+      return { kind: 'none', reason: noEvidenceReason ?? 'No financial evidence has been submitted to FRL.' };
+    }
+    if (activeOutcome?.status === 'insufficient') {
+      return {
+        kind: 'insufficient',
+        reason: activeOutcome.reason,
+        // Names come from the engine's own factor records, so the list of what
+        // is missing is the engine's list and not a UI re-derivation.
+        missing: Object.values(activeOutcome.factors)
+          .filter((factor) => factor.score === null)
+          .map((factor) => factor.name),
+      };
+    }
+    if (scored) return { kind: 'scored', result: scored };
+    return { kind: 'none', reason: noEvidenceReason ?? 'No financial evidence has been submitted to FRL.' };
+  }, [loading, isDemo, realHasData, activeOutcome, scored, noEvidenceReason]);
+
+  /**
+   * Evidence inventory.
+   *
+   * `available` is the engine's own gate, not a count of populated inputs. In
+   * demo mode the underlying record is a sample profile, so every entry is
+   * rendered as demo data and never as submitted evidence.
+   */
+  const evidence = useMemo(
+    () =>
+      EVIDENCE_GROUPS.map((group) => ({
+        group,
+        available: activeFinancialData ? group.has(activeFinancialData) : false,
+      })),
+    [activeFinancialData]
+  );
+
+  const evidenceGroupsWithData = evidence.filter((entry) => entry.available).length;
+
+  /**
+   * Proof eligibility.
+   *
+   * A proof can only exist where the engine produced a score, so eligibility is
+   * `scored !== null` — not "the owner has any record at all". Where no score
+   * exists the workspace says the proof is unavailable instead of offering a
+   * button that would fail.
+   */
+  const canGenerateProof = scored !== null;
+
+  /** The company record's real verification status, stated as reported. */
+  const workspaceVerification = company?.sourceInfo?.verificationStatus;
+  const workspaceVerificationLabel =
+    workspaceVerification === 'verified'
+      ? 'Verified by FRL'
+      : workspaceVerification === 'unverified'
+        ? 'Not verified by FRL'
+        : 'Verification status not reported';
 
   return (
-    <div className="mt-8 space-y-8">
-      {/* SECTION 3: NEW MAIN NAVIGATION BAR */}
-      <div className="p-2 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-xl shadow-xl flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'dashboard'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            Dashboard
-          </button>
-
-          <button
-            onClick={() => setActiveTab('my_reputation')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'my_reputation'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-            }`}
-          >
-            <Award className="w-4 h-4" />
-            My Reputation
-          </button>
-
-          <button
-            onClick={() => setActiveTab('verify')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'verify'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            Verify Company
-          </button>
-
-          <button
-            onClick={() => setActiveTab('proofs')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'proofs'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-            }`}
-          >
-            <Lock className="w-4 h-4" />
-            Proofs ({proofs.filter(p => p.status === 'active').length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab('reputation_data')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'reputation_data'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-            }`}
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            Reputation Data
-          </button>
-        </div>
-
-        {/* Mode Selector & Status Badge */}
-        <div className="flex flex-wrap items-center gap-2 px-2 min-w-0">
-          <div className="inline-flex items-center rounded-xl bg-black/40 border border-white/10 p-1 text-[11px]">
-            <button
-              onClick={() => setDataMode('real')}
-              className={`px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
-                dataMode === 'real' ? 'bg-indigo-600/80 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <UserCheck className="w-3 h-3" />
-              Real Data
-            </button>
-            <button
-              onClick={() => setDataMode('demo')}
-              className={`px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
-                dataMode === 'demo' ? 'bg-indigo-600/80 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Sliders className="w-3 h-3" />
-              Demo Mode
-            </button>
-          </div>
-
-          {isDemo && (
-            <select
-              value={selectedProfileKey}
-              onChange={(e) => setSelectedProfileKey(e.target.value)}
-              className="px-2.5 py-1 rounded-xl bg-black/40 border border-white/15 text-slate-200 text-[11px] focus:outline-none w-full sm:w-auto max-w-full min-w-0"
-            >
-              {Object.entries(MOCK_FINANCIAL_PROFILES).map(([key, item]) => (
-                <option key={key} value={key} className="bg-slate-900 text-slate-200">
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-      </div>
-
-      {/* DEMO MODE NOTICE (Section 17) */}
-      {isDemo && (
-        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 shrink-0 text-amber-400" />
-            <span>
-              <strong>DEMO MODE:</strong> Currently using sample business data profile (<code className="bg-black/40 px-1.5 py-0.5 rounded text-amber-200">{selectedProfileKey}</code>).
-            </span>
-          </div>
-          <button
-            onClick={() => setDataMode('real')}
-            className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-bold transition-colors shrink-0"
-          >
-            Switch to Real Data
-          </button>
-        </div>
-      )}
-
-      {/* EVIDENCE POLICY: missing or partial evidence never renders a score. */}
-      {!loading && activeOutcome && activeOutcome.status === 'insufficient' && (
-        <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex items-start gap-3">
-          <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <strong className="block uppercase tracking-wider">Insufficient Data</strong>
-            <span className="text-amber-300/90">{activeOutcome.reason}</span>
-            <span className="block text-amber-300/70">
-              FRL will not publish a reputation score until every required factor has verified evidence.
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* SECTION 16: EMPTY STATE HANDLING */}
-      {!isDemo && !loading && !realHasData && (
-        <div className="p-12 rounded-3xl border border-dashed border-slate-800 bg-slate-900/40 backdrop-blur-md text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
-            <PieChart className="w-8 h-8" />
-          </div>
-          <div className="max-w-md mx-auto space-y-1">
-            <h3 className="text-xl font-bold text-slate-100">Your Business Reputation is not ready yet</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Add your financial and transaction information to calculate your first reputation score and generate verifiable business signals.
+<div className="space-y-6">
+      {/* ===================== WORKSPACE IDENTITY HEADER ===================== */}
+      <Card tone="glass" padding="none">
+        <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="primary" size="sm" dot>
+                Owner Workspace
+              </Badge>
+              <Badge tone={isDemo ? 'demo' : 'insufficient'} size="sm">
+                {isDemo ? 'Demo Data' : workspaceVerificationLabel}
+              </Badge>
+            </div>
+            <h2 className="mt-3 text-h2 text-white">{company?.name ?? 'Owner Workspace'}</h2>
+            <p className="mt-2 max-w-2xl text-body-sm text-fg-muted">
+              Your private workspace. Financial evidence submitted here is read by the FRL reputation
+              engine, which produces a score only when every required factor has evidence. FRL
+              publishes nothing it has not calculated.
             </p>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all inline-flex items-center gap-2 shadow-lg shadow-indigo-600/30"
+
+          <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
+            <Button onClick={() => setIsModalOpen(true)} icon={<PlusCircle className="h-4 w-4" />}>
+              {realHasData ? 'Update Financial Evidence' : 'Add Financial Evidence'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setActiveTab('reputation_data')}
+              icon={<Layers className="h-4 w-4" />}
+            >
+              Review Evidence
+            </Button>
+            {onViewPublicProfile && (
+              <Button
+                variant="outline"
+                onClick={onViewPublicProfile}
+                icon={<Eye className="h-4 w-4" />}
+              >
+                View Public Profile
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* ======================== WORKSPACE NAVIGATION ======================== */}
+      <nav aria-label="Owner workspace sections" className="frl-glass rounded-lg p-1.5">
+        <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:flex lg:flex-wrap">
+          {WORKSPACE_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            const tabLabel =
+              tab.id === 'proofs'
+                ? `Proofs (${proofs.filter((p) => p.status === 'active').length})`
+                : tab.label;
+
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                aria-current={active ? 'page' : undefined}
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition-[background-color,border-color,color] duration-[var(--frl-dur-fast)] ease-[var(--frl-ease-standard)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
+                  active
+                    ? 'border-white/[0.08] bg-white/[0.08] text-white'
+                    : 'border-transparent text-fg-muted hover:bg-white/[0.04] hover:text-fg-secondary'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">{tabLabel}</span>
+              </button>
+            );
+          })}
+          </div>
+
+          {/* Data mode. Demo Mode is a sample profile and is always labelled as
+              one; switching it never changes where a real record comes from. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              role="group"
+              aria-label="Data mode"
+              className="inline-flex items-center rounded-md border border-white/[0.08] bg-white/[0.03] p-1"
+            >
+              <button
+                type="button"
+                onClick={() => setDataMode('real')}
+                aria-pressed={dataMode === 'real'}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-sm px-2.5 text-caption font-semibold transition-[background-color,color] duration-[var(--frl-dur-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover ${
+                  dataMode === 'real'
+                    ? 'bg-white/[0.08] text-white'
+                    : 'text-fg-muted hover:text-fg-secondary'
+                }`}
+              >
+                <UserCheck className="h-3 w-3" aria-hidden="true" />
+                Real Data
+              </button>
+              <button
+                type="button"
+                onClick={() => setDataMode('demo')}
+                aria-pressed={dataMode === 'demo'}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-sm px-2.5 text-caption font-semibold transition-[background-color,color] duration-[var(--frl-dur-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover ${
+                  dataMode === 'demo'
+                    ? 'bg-white/[0.08] text-white'
+                    : 'text-fg-muted hover:text-fg-secondary'
+                }`}
+              >
+                <Sliders className="h-3 w-3" aria-hidden="true" />
+                Demo Mode
+              </button>
+            </div>
+
+            {isDemo && (
+              <label className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+                <span className="text-caption text-fg-subtle">Profile</span>
+                <select
+                  value={selectedProfileKey}
+                  onChange={(e) => setSelectedProfileKey(e.target.value)}
+                  className="h-9 min-w-0 flex-1 rounded-md border border-white/15 bg-black/40 px-2.5 text-caption text-slate-200 transition-colors duration-[var(--frl-dur-fast)] hover:border-white/25 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25 sm:flex-none"
+                >
+                  {Object.entries(MOCK_FINANCIAL_PROFILES).map(([key, item]) => (
+                    <option key={key} value={key} className="bg-slate-900 text-slate-200">
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      {/* DEMO MODE NOTICE — a sample profile is never presented as evidence. */}
+      {isDemo && (
+        <div className="flex flex-col gap-3 rounded-md border border-demo-line bg-demo-soft p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2.5 text-body-sm leading-relaxed text-amber-200/90">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-demo" aria-hidden="true" />
+            <span>
+              <strong className="text-amber-300">Demo Mode.</strong> Showing the built-in sample
+              profile{' '}
+              <code className="rounded bg-black/40 px-1.5 py-0.5 font-mono text-amber-200">
+                {selectedProfileKey}
+              </code>
+              . Nothing here is real evidence, and no score on this screen is a real reputation.
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDataMode('real')}
+            icon={<UserCheck className="h-3.5 w-3.5" />}
           >
-            <PlusCircle className="w-4 h-4" />
-            Add Reputation Data
-          </button>
+            Switch to Real Data
+          </Button>
         </div>
       )}
 
       {/* ========================================================================= */}
       {/* TAB 1: DASHBOARD (Sections 4, 5, 6)                                       */}
       {/* ========================================================================= */}
-      {activeTab === 'dashboard' && (isDemo || realHasData) && scored && (
+{activeTab === 'dashboard' && (
+        <div className="space-y-6">
+          {/* -------------------------- REPUTATION READINESS -------------------------- */}
+          <Card tone="base" padding="md">
+            <CardHeader>
+              <div>
+                <CardTitle>Reputation readiness</CardTitle>
+                <CardDescription>
+                  This is the engine&apos;s own assessment of your submitted evidence. FRL does not
+                  compute a completion percentage, so none is shown here.
+                </CardDescription>
+              </div>
+              {readiness.kind === 'loading' && (
+                <Badge tone="neutral" size="sm">
+                  Checking
+                </Badge>
+              )}
+              {readiness.kind === 'scored' && (
+                <Badge tone="success" size="sm" dot>
+                  Score available
+                </Badge>
+              )}
+              {(readiness.kind === 'none' || readiness.kind === 'insufficient') && (
+                <Badge tone="insufficient" size="md" dot>
+                  Insufficient Data
+                </Badge>
+              )}
+              {readiness.kind === 'demo' && (
+                <Badge tone="demo" size="md">
+                  Demo Data — Not A Real Score
+                </Badge>
+              )}
+            </CardHeader>
+
+            <CardContent className="mt-5">
+              {readiness.kind === 'loading' && (
+                <p className="flex items-center gap-2.5 text-body-sm text-fg-muted">
+                  <RefreshCw
+                    className="h-4 w-4 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                  Checking the evidence you have submitted.
+                </p>
+              )}
+
+              {readiness.kind === 'demo' && (
+                <div className="rounded-md border border-demo-line bg-demo-soft p-4">
+                  <p className="text-body-sm leading-relaxed text-amber-200/90">
+                    You are viewing a built-in sample profile. FRL has verified nothing here and no
+                    score on this screen reflects a real business. Switch to Real Data to work with
+                    your own submitted evidence.
+                  </p>
+                </div>
+              )}
+
+              {readiness.kind === 'none' && (
+                <div className="space-y-4">
+                  <p className="text-body text-fg-secondary">{readiness.reason}</p>
+                  <p className="max-w-2xl text-body-sm text-fg-muted">
+                    FRL cannot calculate a reputation score until sufficient evidence exists. Submit
+                    your financial evidence to begin. FRL will then name the exact factors that are
+                    still missing rather than estimating how far along you are.
+                  </p>
+                  <Button
+                    onClick={() => setIsModalOpen(true)}
+                    icon={<PlusCircle className="h-4 w-4" />}
+                  >
+                    Add Financial Evidence
+                  </Button>
+                </div>
+              )}
+
+              {readiness.kind === 'insufficient' && (
+                <div className="space-y-4">
+                  <p className="max-w-3xl text-body text-fg-secondary">{readiness.reason}</p>
+                  {readiness.missing.length > 0 && (
+                    <div className="rounded-md border border-white/[0.08] bg-white/[0.02] p-4">
+                      <h3 className="text-label text-fg-subtle">Factors without evidence</h3>
+                      <ul className="mt-2.5 flex flex-wrap gap-2">
+                        {readiness.missing.map((name) => (
+                          <li key={name}>
+                            <Badge tone="insufficient" size="sm">
+                              {name}
+                            </Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <p className="max-w-2xl text-body-sm text-fg-muted">
+                    FRL will not publish a reputation score until every required factor has evidence.
+                    Complete the evidence below and the engine recalculates.
+                  </p>
+                  <Button
+                    onClick={() => setIsModalOpen(true)}
+                    icon={<PlusCircle className="h-4 w-4" />}
+                  >
+                    Complete Financial Evidence
+                  </Button>
+                </div>
+              )}
+
+              {readiness.kind === 'scored' && (
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-baseline gap-3">
+                      <span className="text-metric text-white">{readiness.result.score}</span>
+                      <span className="text-body-sm text-fg-muted">/ 850</span>
+                      {getLevelBadge(readiness.result.level)}
+                    </div>
+                    <p className="mt-2 max-w-xl text-body-sm text-fg-muted">
+                      Calculated by the FRL reputation engine from the evidence you submitted. FRL has
+                      not independently audited that evidence; it reflects what you have declared.
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setActiveTab('my_reputation')}
+                    icon={<Award className="h-4 w-4" />}
+                  >
+                    View Reputation Detail
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* --------------------------- EVIDENCE INVENTORY --------------------------- */}
+          <Card tone="base" padding="md">
+            <CardHeader>
+              <div>
+                <CardTitle>Financial evidence</CardTitle>
+                <CardDescription>
+                  What is available, what is missing, and what each group is used for. A field shown
+                  as — was not reported. It is not a zero.
+                </CardDescription>
+              </div>
+              <Badge tone={isDemo ? 'demo' : 'neutral'} size="sm">
+                {isDemo ? 'Sample profile' : 'Your submission'}
+              </Badge>
+            </CardHeader>
+
+            <CardContent className="mt-5">
+              <p className="text-body-sm text-fg-muted">
+                Evidence groups with submitted data:{' '}
+                <strong className="text-fg-secondary">
+                  {evidenceGroupsWithData} of {EVIDENCE_GROUPS.length}
+                </strong>
+                . This counts groups, not completeness — FRL publishes a score only when every factor
+                has evidence.
+              </p>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {evidence.map(({ group, available }) => {
+                  const Icon = group.icon;
+
+                  return (
+                    <div
+                      key={group.id}
+                      className="rounded-md border border-white/[0.08] bg-white/[0.02] p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <Icon
+                            className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle"
+                            aria-hidden="true"
+                          />
+                          <div className="min-w-0">
+                            <h4 className="text-body-sm font-semibold text-slate-100">
+                              {group.label}
+                            </h4>
+                            <p className="mt-1 text-caption leading-relaxed text-fg-muted">
+                              {group.purpose}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge
+                          tone={isDemo ? 'demo' : available ? 'success' : 'insufficient'}
+                          size="sm"
+                          className="shrink-0"
+                        >
+                          {isDemo ? 'Sample' : available ? 'Available' : 'Missing'}
+                        </Badge>
+                      </div>
+
+                      {activeFinancialData && (
+                        <dl className="mt-3 space-y-1.5 border-t border-white/[0.06] pt-3">
+                          {group.rows(activeFinancialData).map((row) => (
+                            <div
+                              key={row.label}
+                              className="flex items-baseline justify-between gap-3"
+                            >
+                              <dt className="text-caption text-fg-muted">{row.label}</dt>
+                              <dd className="shrink-0 text-caption font-medium text-slate-200">
+                                {row.value}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="mt-4 text-caption leading-relaxed text-fg-subtle">
+                Raw financial information is read by the FRL engine to decide whether a reputation can
+                be produced. It is never exposed through public reputation verification.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* ----------------------------- OWNER ACTIONS ----------------------------- */}
+          <Card tone="base" padding="md">
+            <CardHeader>
+              <div>
+                <CardTitle>Owner actions</CardTitle>
+                <CardDescription>
+                  These are the actions FRL already offers. Nothing on this screen can change a
+                  reputation without evidence behind it.
+                </CardDescription>
+              </div>
+            </CardHeader>
+
+            <CardContent className="mt-5 grid gap-3 sm:grid-cols-2">
+              <Button
+                variant="secondary"
+                onClick={() => setIsModalOpen(true)}
+                icon={<PlusCircle className="h-4 w-4" />}
+              >
+                {realHasData ? 'Update financial evidence' : 'Add financial evidence'}
+              </Button>
+
+              <Button
+                variant="secondary"
+                onClick={() => setActiveTab('my_reputation')}
+                icon={<Award className="h-4 w-4" />}
+              >
+                View reputation
+              </Button>
+
+              {canGenerateProof ? (
+                <Button
+                  variant="secondary"
+                  onClick={handleGenerateProof}
+                  loading={generatingProof}
+                  icon={<ShieldCheck className="h-4 w-4" />}
+                >
+                  Generate reputation proof
+                </Button>
+              ) : (
+                <div className="flex items-start gap-2.5 rounded-md border border-white/[0.08] bg-white/[0.02] p-4">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <h4 className="text-body-sm font-semibold text-slate-200">Proof unavailable</h4>
+                    <p className="mt-1 text-caption leading-relaxed text-fg-muted">
+                      A reputation proof can only be minted from a scored outcome. Complete your
+                      evidence first.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <Button
+                variant="secondary"
+                onClick={() => setActiveTab('verify')}
+                icon={<ShieldCheck className="h-4 w-4" />}
+              >
+                Verify a company
+              </Button>
+
+              <Button
+                variant="secondary"
+                onClick={() => setActiveTab('reputation_data')}
+                icon={<Layers className="h-4 w-4" />}
+              >
+                Review submitted data
+              </Button>
+
+              <Button
+                variant="secondary"
+                onClick={() => setActiveTab('proofs')}
+                icon={<Lock className="h-4 w-4" />}
+              >
+                Manage proofs
+              </Button>
+
+              <Link
+                href="/search"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 text-sm font-semibold text-slate-100 transition-[background-color,border-color,color,transform] duration-[var(--frl-dur-fast)] ease-[var(--frl-ease-standard)] hover:border-white/25 hover:bg-white/10 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-hover focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+              >
+                <Search className="h-4 w-4" aria-hidden="true" />
+                Return to search
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'dashboard' && scored && (
         <div className="space-y-8">
           {/* SECTION 4: MY BUSINESS REPUTATION HERO CARD */}
           <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-6">
@@ -1415,164 +1986,130 @@ export function ReputationEngineView({ userId = 'c1' }: ReputationEngineViewProp
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* TAB 5: REPUTATION DATA / FINANCIAL METRICS MANAGEMENT (Section 9)           */}
+{/* ========================================================================= */}
+      {/* TAB 5: SUBMITTED FINANCIAL EVIDENCE                                        */}
       {/* ========================================================================= */}
       {activeTab === 'reputation_data' && (
-        <div className="space-y-8 max-w-4xl mx-auto">
-          <div className="p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+        <div className="space-y-6">
+          <Card tone="base" padding="md">
+            <CardHeader>
               <div>
-                <h2 className="text-2xl font-bold text-slate-100">Manage Reputation Data</h2>
-                <p className="text-xs text-slate-400 mt-1 max-w-xl">
-                  This information is used by FRL to calculate your Business Reputation. Raw financial information is not exposed through public reputation verification.
-                </p>
+                <CardTitle>Submitted financial evidence</CardTitle>
+                <CardDescription>
+                  Everything the FRL engine reads from you, and exactly what it is missing. A field
+                  shown as — was never reported. It is never treated as zero.
+                </CardDescription>
               </div>
-
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => setIsModalOpen(true)}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 shrink-0"
+                icon={<Edit3 className="h-4 w-4" />}
               >
-                <Edit3 className="w-4 h-4" />
-                Update Reputation Data
-              </button>
-            </div>
+                Update Evidence
+              </Button>
+            </CardHeader>
 
-            {/* Grouped Financial Sections (Section 9) */}
-            <div className="grid md:grid-cols-2 gap-6 text-xs">
-              {/* Group 1: Income & Stability */}
-              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
-                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-emerald-400" />
-                  Income & Stability
-                </h3>
-                <div className="space-y-2 text-slate-300">
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Monthly Income:</span>
-                    <strong className="text-slate-100">฿{monthlyInc.toLocaleString()}</strong>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Stability Duration:</span>
-                    <strong className="text-slate-100">{activeFinancialData?.income?.stabilityMonths || 0} Months</strong>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span>Revenue Sources:</span>
-                    <strong className="text-slate-100">{activeFinancialData?.income?.sourcesCount || 1} Sources</strong>
-                  </div>
-                </div>
+            <CardContent className="mt-5 space-y-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone={isDemo ? 'demo' : 'neutral'} size="sm">
+                  {isDemo ? 'Sample profile — not your evidence' : 'Your submitted evidence'}
+                </Badge>
+                {!isDemo && (
+                  <Badge tone={realHasData ? 'success' : 'insufficient'} size="sm">
+                    {realHasData ? 'Record on file' : 'No record on file'}
+                  </Badge>
+                )}
               </div>
 
-              {/* Group 2: Expenses & Spending */}
-              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
-                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
-                  <PieChart className="w-4 h-4 text-indigo-400" />
-                  Expenses & Spending
-                </h3>
-                <div className="space-y-2 text-slate-300">
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Monthly Average Expenses:</span>
-                    <strong className="text-slate-100">฿{monthlyExp.toLocaleString()}</strong>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span>Expense Ratio:</span>
-                    <strong className="text-indigo-400">{expenseRatio}%</strong>
-                  </div>
+              {!activeFinancialData ? (
+                <div className="rounded-md border border-dashed border-white/10 bg-white/[0.02] p-6 text-center">
+                  <PieChart className="mx-auto h-7 w-7 text-fg-subtle" aria-hidden="true" />
+                  <h3 className="mt-3 text-h4 text-slate-100">No evidence has been submitted yet</h3>
+                  <p className="mx-auto mt-2 max-w-lg text-body-sm leading-relaxed text-fg-muted">
+                    FRL cannot calculate a reputation score until sufficient evidence exists. Nothing
+                    is held on this workspace, so there is nothing to show and no score to publish.
+                  </p>
+                  <Button
+                    className="mt-4"
+                    onClick={() => setIsModalOpen(true)}
+                    icon={<PlusCircle className="h-4 w-4" />}
+                  >
+                    Add Financial Evidence
+                  </Button>
                 </div>
-              </div>
-
-              {/* Group 3: Payments */}
-              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
-                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  Payments & Obligations
-                </h3>
-                <div className="space-y-2 text-slate-300">
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Total Payments Due:</span>
-                    <strong className="text-slate-100">{activeFinancialData?.payments?.totalDue || 0}</strong>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>On-time Count:</span>
-                    <strong className="text-emerald-400">{activeFinancialData?.payments?.onTimeCount || 0}</strong>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span>Late / Missed:</span>
-                    <strong className="text-amber-400">
-                      {(activeFinancialData?.payments?.lateCount || 0) + (activeFinancialData?.payments?.missedCount || 0)}
+              ) : (
+                <>
+                  <p className="text-body-sm text-fg-muted">
+                    Evidence groups with submitted data:{' '}
+                    <strong className="text-fg-secondary">
+                      {evidenceGroupsWithData} of {EVIDENCE_GROUPS.length}
                     </strong>
-                  </div>
-                </div>
-              </div>
+                    . This counts groups rather than completeness, and FRL publishes a score only
+                    when every required factor has evidence.
+                  </p>
 
-              {/* Group 4: Savings */}
-              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
-                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-emerald-400" />
-                  Savings & Reserves
-                </h3>
-                <div className="space-y-2 text-slate-300">
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Total Liquid Balance:</span>
-                    <strong className="text-emerald-400">฿{totalSav.toLocaleString()}</strong>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Monthly Contribution:</span>
-                    <strong className="text-slate-100">฿{monthlySav.toLocaleString()}</strong>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span>Savings Rate:</span>
-                    <strong className="text-emerald-400">{savingsRate}%</strong>
-                  </div>
-                </div>
-              </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {evidence.map(({ group, available }) => {
+                      const Icon = group.icon;
+                      const rows = group.rows(activeFinancialData);
 
-              {/* Group 5: Debt */}
-              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
-                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
-                  Debt Liabilities
-                </h3>
-                <div className="space-y-2 text-slate-300">
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Total Liabilities:</span>
-                    <strong className="text-amber-400">฿{totalDebt.toLocaleString()}</strong>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Monthly Debt Service:</span>
-                    <strong className="text-slate-100">฿{monthlyDebtService.toLocaleString()}</strong>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span>DTI Ratio:</span>
-                    <strong className="text-amber-400">{dtiRatio}%</strong>
-                  </div>
-                </div>
-              </div>
+                      return (
+                        <Card key={group.id} tone="muted" padding="sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-start gap-2.5">
+                              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" aria-hidden="true" />
+                              <div className="min-w-0">
+                                <h4 className="text-body-sm font-semibold text-slate-100">
+                                  {group.label}
+                                </h4>
+                                <p className="mt-1 text-caption leading-relaxed text-fg-muted">
+                                  {group.purpose}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge
+                              tone={isDemo ? 'demo' : available ? 'success' : 'insufficient'}
+                              size="sm"
+                              className="shrink-0"
+                            >
+                              {isDemo ? 'Sample' : available ? 'Available' : 'Missing'}
+                            </Badge>
+                          </div>
 
-              {/* Group 6: Transaction History */}
-              <div className="p-5 rounded-2xl bg-black/30 border border-white/10 space-y-3">
-                <h3 className="font-bold text-slate-200 text-sm flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-indigo-400" />
-                  Transaction History
-                </h3>
-                <div className="space-y-2 text-slate-300">
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>6-Month Transactions:</span>
-                    <strong className="text-slate-100">{activeFinancialData?.transactions?.count6Months || 0}</strong>
+                          <dl className="mt-4 space-y-0 border-t border-white/[0.06]">
+                            {rows.map((row) => (
+                              <div
+                                key={row.label}
+                                className="flex items-baseline justify-between gap-3 border-b border-white/[0.04] py-2 last:border-b-0"
+                              >
+                                <dt className="text-caption text-fg-muted">{row.label}</dt>
+                                <dd
+                                  className={`shrink-0 text-caption font-medium ${
+                                    row.value === NOT_REPORTED ? 'text-fg-subtle' : 'text-slate-200'
+                                  }`}
+                                >
+                                  {row.value}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </Card>
+                      );
+                    })}
                   </div>
-                  <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Account Duration:</span>
-                    <strong className="text-slate-100">{activeFinancialData?.transactions?.oldestAccountYears || 0} Years</strong>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span>Bounced Checks:</span>
-                    <strong className="text-rose-400">{activeFinancialData?.transactions?.bouncedCount || 0}</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+
+                  <p className="text-caption leading-relaxed text-fg-subtle">
+                    This information is used by FRL to calculate your Business Reputation. Raw
+                    financial information is not exposed through public reputation verification.
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
+
 
       {/* SHARE LINK CREATION MODAL */}
       {shareModalOpen && selectedProofForShare && (

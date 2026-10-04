@@ -130,6 +130,19 @@
   --spacing-gap: 1rem; /* 16px */
   --spacing-grid: 1.5rem; /* 24px */
 
+  /* ---- Pill radius ----------------------------------------------------
+     The only radius in @theme, and the reason is corrective: `rounded-pill`
+     is already written into markup in Badge, the landing hero, and the
+     company profile, but no `--radius-pill` existed, so Tailwind generated
+     no utility for it and every pill in the product silently rendered with
+     square corners.
+
+     Adding this key is purely additive. It does not override any default
+     `--radius-*` scale entry, so it cannot restyle existing rounded-{sm..3xl}
+     markup — which is what the rest of the radius scale below is kept out of
+     @theme to prevent. `--frl-radius-*` in :root stays the canonical ladder. */
+  --radius-pill: 9999px;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

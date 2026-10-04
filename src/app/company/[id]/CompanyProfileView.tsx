@@ -272,25 +272,15 @@ export function CompanyProfileView({ company }: Props) {
           )}
 
           {viewMode === 'workspace' ? (
-            /* Owner Workspace is explicitly out of scope for this phase. The
-               wrapper is restyled; ReputationEngineView and its props are not. */
-            <div className="mt-8 space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-indigo-500/25 bg-indigo-500/[0.07] p-4">
-                <div className="flex items-start gap-3">
-                  <Lock className="mt-0.5 h-4 w-4 shrink-0 text-primary-hover" aria-hidden="true" />
-                  <div>
-                    <h2 className="text-h4 text-slate-100">Private Owner Workspace</h2>
-                    <p className="mt-1 text-body-sm text-fg-muted">
-                      Manage financial inputs, create reputation proofs, and control selective
-                      disclosure shares for {company.name}.
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setViewMode('profile')}>
-                  View Public Profile
-                </Button>
-              </div>
-              <ReputationEngineView />
+            /* UI Phase 5: the workspace owns its own identity header, so the
+               wrapper no longer repeats the company name and summary. `company`
+               and the profile switch are passed in as context only — every
+               number the workspace shows still comes from the engine. */
+            <div className="mt-6">
+              <ReputationEngineView
+                company={company}
+                onViewPublicProfile={() => setViewMode('profile')}
+              />
             </div>
           ) : (
             <div className="mt-6 space-y-6">
