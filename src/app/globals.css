@@ -335,6 +335,45 @@
     backdrop-filter: blur(12px) saturate(140%);
     border-bottom: 1px solid var(--color-line);
   }
+
+  /* ---- Entrance motion -------------------------------------------------
+     Declarative only, and gated behind prefers-reduced-motion: no-preference,
+     so when reduced motion is on these classes are inert rather than "faster".
+     Purely presentational: they never carry meaning a user needs to read.   */
+  .frl-enter {
+    animation: frl-fade-up var(--frl-dur-slow) var(--frl-ease-emphasis) both;
+  }
+  .frl-enter-1 { animation-delay: 0ms; }
+  .frl-enter-2 { animation-delay: 70ms; }
+  .frl-enter-3 { animation-delay: 140ms; }
+  .frl-enter-4 { animation-delay: 210ms; }
+  .frl-enter-5 { animation-delay: 280ms; }
+  .frl-enter-6 { animation-delay: 350ms; }
+
+  /* Slow drifting ambience behind the hero. Decorative depth only. */
+  .frl-ambient {
+    animation: frl-drift 18s ease-in-out infinite alternate;
+  }
+
+  @keyframes frl-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes frl-drift {
+    from {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+      transform: translate3d(0, -18px, 0) scale(1.06);
+    }
+  }
 }
 
 /* ---- Company profile motion (meaningful, subtle) ---- */
@@ -411,5 +450,31 @@
   }
   50% {
     opacity: 0.35;
+  }
+}
+
+/* UI Phase 2 entrance motion is emitted only when motion is welcome, and the
+   global reduced-motion block above additionally clamps anything that slips
+   through. Both guards, because an entrance must never be load-bearing. */
+@media (prefers-reduced-motion: no-preference) {
+  .frl-enter,
+  .frl-enter-1,
+  .frl-enter-2,
+  .frl-enter-3,
+  .frl-enter-4,
+  .frl-enter-5,
+  .frl-enter-6 {
+    animation-name: frl-fade-up;
+    animation-duration: var(--frl-dur-slow);
+    animation-timing-function: var(--frl-ease-emphasis);
+    animation-fill-mode: both;
+  }
+  .frl-enter-2 { animation-delay: 70ms; }
+  .frl-enter-3 { animation-delay: 140ms; }
+  .frl-enter-4 { animation-delay: 210ms; }
+  .frl-enter-5 { animation-delay: 280ms; }
+  .frl-enter-6 { animation-delay: 350ms; }
+  .frl-ambient {
+    animation: frl-drift 18s ease-in-out infinite alternate;
   }
 }
